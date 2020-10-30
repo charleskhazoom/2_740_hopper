@@ -79,7 +79,7 @@ T2 = (1/2)*m2 * dot(dr_m2,dr_m2) + (1/2) * I2 * omega2^2;
 T3 = (1/2)*m3 * dot(dr_m3,dr_m3) + (1/2) * I3 * omega3^2;
 T4 = (1/2)*m4 * dot(dr_m4,dr_m4) + (1/2) * I4 * omega4^2;
 T_body = (1/2)*m_body * dot(dr_arm_base,dr_arm_base);
-T_arm = (1/2)*m_body * dot(dr_arm_cm,dr_arm_cm) + (1/2) * I_arm * dth3^2;
+T_arm = (1/2)*m_arm * dot(dr_arm_cm,dr_arm_cm) + (1/2) * I_arm * dth3^2;
 
 T1r = (1/2)*Ir*(N*dth1)^2;
 T2r = (1/2)*Ir*(dth1 + N*dth2)^2;
