@@ -1,5 +1,5 @@
 clear;clc;close all;
-
+addpath('dynamics_gen/')
 %% Set Auxillary Data
 m1 =.0393 + .2;         m2 =.0368;
 m3 = .00783;            m4 = .0155;
