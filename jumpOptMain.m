@@ -27,7 +27,7 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
     l_A_m3 l_C_m4 l_cm_arm l_OA l_OB l_AC l_DE l_body l_arm g]';        % parameters
 
 auxdata.p = p;
-
+mu = 0.8; % friction coeff
 %% Set Bounds
 desired_hip_pos0 = [0.03;0.08];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
@@ -55,6 +55,12 @@ bounds.phase(1).control.upper = [99 99 99];
 
 bounds.phase(1).integral.lower = 0;
 bounds.phase(1).integral.upper = 1e5;
+
+bounds.phase(1).path.lower(1) = -mu;
+bounds.phase(1).path.upper(1) = mu;
+
+bounds.phase(1).path.lower(2) = 0;
+bounds.phase(1).path.upper(2) = inf;
 
 %% Initial Guess
 guess.phase(1).time = [0;0.5];
