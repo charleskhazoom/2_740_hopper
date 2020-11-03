@@ -20,14 +20,21 @@ l_arm = 0.1;
 l_cm_arm = 0.8*l_arm;
 m_arm = 0.1; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2;
-%     restitution_coeff = 0.;
-%     friction_coeff = 0.3;
 ground_height = 0;
+
+
+mu = 0.8; % friction coef
+max_voltage = 12; % volts
+motor_kt = 0.18;
+motor_R = 2;
+
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
-    l_A_m3 l_C_m4 l_cm_arm l_OA l_OB l_AC l_DE l_body l_arm g]';        % parameters
+    l_A_m3 l_C_m4 l_cm_arm l_OA l_OB l_AC l_DE l_body l_arm g motor_kt motor_R]';        % parameters
 
 auxdata.p = p;
-mu = 0.8; % friction coeff
+
+
+
 %% Set Bounds
 desired_hip_pos0 = [0.03;0.08];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
@@ -56,11 +63,21 @@ bounds.phase(1).control.upper = [99 99 99];
 bounds.phase(1).integral.lower = 0;
 bounds.phase(1).integral.upper = 1e5;
 
+% friction bounds for force
 bounds.phase(1).path.lower(1) = -mu;
 bounds.phase(1).path.upper(1) = mu;
 
+% unilateral bounds for force
 bounds.phase(1).path.lower(2) = 0;
 bounds.phase(1).path.upper(2) = inf;
+
+
+% bounds for voltage (3 motors)
+for motor = 1:3
+    bounds.phase(1).path.lower(end+1) = -max_voltage;
+    bounds.phase(1).path.upper(end+1) = max_voltage;
+end
+
 
 %% Initial Guess
 guess.phase(1).time = [0;0.5];
