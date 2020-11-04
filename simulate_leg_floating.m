@@ -9,8 +9,10 @@ addpath(path_sym_dynamics)
 % F   = [Fx ; Fy]; % constraint force
 % state z = [q;dq]
     %% Definte fixed paramters
-    m1 =.0393 + .2;         m2 =.0368; 
-    m3 = .00783;            m4 = .0155;
+    m1 =.0393 + .2; % 0.2 is motor mass
+    m2 =.0368; 
+    m3 = .00783;
+    m4 = .0155;
     I1 = 25.1 * 10^-6;      I2 = 53.5 * 10^-6;
     I3 = 9.25 * 10^-6;      I4 = 22.176 * 10^-6;
     l_OA=.011;              l_OB=.042; 
@@ -26,18 +28,21 @@ addpath(path_sym_dynamics)
     l_body = 0.04;
     l_arm = 0.1;
     l_cm_arm = 0.8*l_arm;
+    l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
+
     m_arm = 0.1; % 100 grams ?
     I_arm = m_arm*l_cm_arm^2;
 %     restitution_coeff = 0.;
 %     friction_coeff = 0.3;
     ground_height = 0;
     %% Parameter vector
-    p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
-    l_A_m3 l_C_m4 l_cm_arm l_OA l_OB l_AC l_DE l_body l_arm g]';        % parameters
-       
+
+p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g]';        % parameters
 
     
     %% Perform Dynamic simulation
+    fignb=1;
     tf = 0.8;
 %     num_step = floor(tf/dt);
     tspan = [0 tf];
@@ -71,7 +76,9 @@ addpath(path_sym_dynamics)
 
     %% Compute Energy
     E = energy_floating(z_out,p);
-    figure(1); clf
+    
+    figure(fignb); clf
+    fignb=fignb+1;
     plot(tout,E);xlabel('Time (s)'); ylabel('Energy (J)');
     %% Compute ground force
     Fgnd = zeros(2,length(tout));
@@ -87,9 +94,10 @@ addpath(path_sym_dynamics)
         Fgnd(:,i)=[0;0];
     end
     
-
     end
-    figure;plot(tout,Fgnd)
+    figure(fignb);
+    fignb=fignb+1;
+    plot(tout,Fgnd)
     ylabel('Ground Force')
     xlabel('Time (s)');
     legend('x','y')
@@ -101,7 +109,9 @@ addpath(path_sym_dynamics)
         vE(:,i) = velocity_foot(z_out(:,i),p);
     end
     
-    figure(2); clf;
+    figure(fignb); 
+    fignb=fignb+1;
+    clf;
     plot(tout,rE(1,:),'r','LineWidth',2)
     hold on
     plot(tout,rE(2,:),'b','LineWidth',2)
@@ -109,7 +119,9 @@ addpath(path_sym_dynamics)
     
     xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','y'});
 
-    figure(3); clf;
+    figure(fignb); 
+    fignb=fignb+1;
+    clf;
     plot(tout,vE(1,:),'r','LineWidth',2)
     hold on
     plot(tout,vE(2,:),'b','LineWidth',2)
@@ -117,7 +129,9 @@ addpath(path_sym_dynamics)
 
     xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
     
-    figure(4)
+    
+    figure(fignb); 
+    fignb=fignb+1;
     ax1(1) = subplot(211);
     plot(tout,z_out(1:2,:))
     legend('x','y');
@@ -130,7 +144,9 @@ addpath(path_sym_dynamics)
     xlabel('Time (s)');
     ylabel('Angle (deg)');
     
-    figure(5)
+    figure(fignb); 
+    fignb=fignb+1;
+    
     ax1(3) = subplot(211);
     plot(tout,z_out(6:7,:))
     legend('xdot','ydot');
@@ -143,10 +159,35 @@ addpath(path_sym_dynamics)
     xlabel('Time (s)');
     ylabel('Ang.Vel (deg/s)');
     
+    %% com position + velocity
+    for i = 1:length(tout)
+        rCOM(:,i) = com_pos(z_out(:,i),p);
+        drCOM(:,i) = com_vel(z_out(:,i),p);
+    end
     
-
+    
+    figure(fignb); 
+    fignb=fignb+1;
+    
+    plot(tout,rCOM(1,:));
+    hold on;
+    plot(tout,rCOM(2,:));
+    hold off;
+    legend('x','y')
+    title('COM position')
+    
+        figure(fignb); 
+    fignb=fignb+1;
+    plot(tout,drCOM(1,:));
+    hold on;
+    plot(tout,drCOM(2,:));
+    hold off;
+    legend('x','y')
+    title('COM velocity')
     %% Animate Solution
-    figure(6); clf;
+    figure(fignb); 
+    fignb=fignb+1; 
+    clf;
     hold on
    
   
@@ -165,8 +206,9 @@ end
 
 function tau = control_law_flight(t, z, p)
  
+    %tau = [0.5;0;0.5];
+%     tau = [-0.5;-0.5;1];
     tau = [0;0;0];
-
 % 
 end
 
