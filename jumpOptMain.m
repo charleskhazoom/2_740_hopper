@@ -1,35 +1,43 @@
 clear;clc;close all;
 addpath('dynamics_gen/')
 %% Set Auxillary Data
-m1 =.0393 + .2;         m2 =.0368;
-m3 = .00783;            m4 = .0155;
-I1 = 25.1 * 10^-6;      I2 = 53.5 * 10^-6;
-I3 = 9.25 * 10^-6;      I4 = 22.176 * 10^-6;
-l_OA=.011;              l_OB=.042;
-l_AC=.096;              l_DE=.091;
-l_O_m1=0.032;           l_B_m2=0.0344;
-l_A_m3=0.0622;          l_C_m4=0.0610;
-N = 18.75;
-Ir = 0.0035/N^2;
-g = 9.81;
+    m1 =.0393 + .2; % 0.2 is motor mass
+    m2 =.0368; 
+    m3 = .00783;
+    m4 = .0155;
+    I1 = 25.1 * 10^-6;      I2 = 53.5 * 10^-6;
+    I3 = 9.25 * 10^-6;      I4 = 22.176 * 10^-6;
+    l_OA=.011;              l_OB=.042; 
+    l_AC=.096;              l_DE=.091;
+    l_O_m1=0.032;           l_B_m2=0.0344; 
+    l_A_m3=0.0622;          l_C_m4=0.0610;
+    N = 18.75;
+    Ir = 0.0035/N^2;
+    g = 9.81;    
+    
+    % parameters to be adjusted according to design
+    m_body = 0.186+0.211;%
+    l_body = 0.04;
+    l_arm = 0.1;
+    l_cm_arm = 0.8*l_arm;
+    l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
-% parameters to be adjusted according to design
-m_body = 0.186+0.211;%
-l_body = 0.04;
-l_arm = 0.1;
-l_cm_arm = 0.8*l_arm;
-m_arm = 0.1; % 100 grams ?
-I_arm = m_arm*l_cm_arm^2;
-ground_height = 0;
+    m_arm = 0.1; % 100 grams ?
+    I_arm = m_arm*l_cm_arm^2;
+%     restitution_coeff = 0.;
+%     friction_coeff = 0.3;
+    ground_height = 0;
+    %% Parameter vector
 
 
 mu = 0.8; % friction coef
 max_voltage = 12; % volts
 motor_kt = 0.18;
 motor_R = 2;
-
+    
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
-    l_A_m3 l_C_m4 l_cm_arm l_OA l_OB l_AC l_DE l_body l_arm g motor_kt motor_R]';        % parameters
+    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g motor_kt motor_R]';        % parameters
+
 
 auxdata.p = p;
 
@@ -110,3 +118,26 @@ output = gpops2(setup);
 solution = output.result.solution;
 
 %% Parse Solution
+clear tout zout uout
+
+n_phase = length(solution.phase);
+tout =[];
+zout = [];
+uout = [];
+for i = 1:length(n_phase)
+    tout = [tout solution.phase(i).time'];
+    zout = [zout solution.phase(i).state'];
+    uout = [uout solution.phase(i).control'];
+end
+
+
+fignb=1;
+figure(fignb);
+fignb=fignb+1;
+clf;
+hold on
+
+
+% Target traj
+plot([-.2 .7],[ground_height ground_height],'k');
+animateSol(tout, zout,p);
