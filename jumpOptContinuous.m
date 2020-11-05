@@ -30,8 +30,8 @@ output(1).path(:,2) = F(:,2); % second path constraint is :vertical force can on
 
 % voltage ineq constraint on 3 motors
 kt = input.auxdata.p(27); 
-R = input.auxdata.p(28);
-N  =input.auxdata.p(13);
+R  = input.auxdata.p(28);
+N  = input.auxdata.p(13);
 
 output(1).path(:,3) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).state(:,8)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
 output(1).path(:,4) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)

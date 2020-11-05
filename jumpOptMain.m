@@ -118,7 +118,6 @@ output = gpops2(setup);
 solution = output.result.solution;
 
 %% Parse Solution
-clear tout zout uout
 
 n_phase = length(solution.phase);
 tout =[];
@@ -130,8 +129,11 @@ for i = 1:length(n_phase)
     uout = [uout solution.phase(i).control'];
 end
 
-
+tLO = solution.phase(1).time(end); % time lift off is the last time of first phase 
+%-------------------make all kind of plot---------------------------------%
 fignb=1;
+
+
 figure(fignb);
 fignb=fignb+1;
 clf;
@@ -141,3 +143,5 @@ hold on
 % Target traj
 plot([-.2 .7],[ground_height ground_height],'k');
 animateSol(tout, zout,p);
+
+plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
