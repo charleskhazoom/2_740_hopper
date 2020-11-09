@@ -45,12 +45,20 @@ init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angl
 init_arm_angle = 0;
 z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 
+% Time
 bounds.phase(1).initialtime.lower = 0;
 bounds.phase(1).initialtime.upper = 0;
 
 bounds.phase(1).finaltime.lower = 0.2;
 bounds.phase(1).finaltime.upper = 0.2;
 
+bounds.phase(2).initialtime.lower = 0.1;
+bounds.phase(2).initialtime.upper = 0.3;
+
+bounds.phase(2).finaltime.lower = 0.3;
+bounds.phase(2).finaltime.upper = 0.3;
+
+% State
 bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
@@ -60,8 +68,21 @@ bounds.phase(1).state.upper = [1 1 1.5*pi 1.5*pi 2*pi 10 10 40 40 40];
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(1).finalstate.upper = bounds.phase(1).state.upper;
 
+bounds.phase(2).initialstate.lower = bounds.phase(1).state.lower;
+bounds.phase(2).initialstate.upper = bounds.phase(1).state.upper;
+
+bounds.phase(2).state.lower = bounds.phase(1).state.lower;
+bounds.phase(2).state.upper = bounds.phase(1).state.upper;
+
+bounds.phase(2).finalstate.lower = bounds.phase(1).state.lower;
+bounds.phase(2).finalstate.upper = bounds.phase(1).state.upper;
+
+% Control
 bounds.phase(1).control.lower = [-11 -11 -11];
 bounds.phase(1).control.upper = [11 11 11];
+
+bounds.phase(2).control.lower = bounds.phase(1).control.lower;
+bounds.phase(2).control.upper = bounds.phase(1).control.upper;
 
 % friction bounds for force
 bounds.phase(1).path.lower(1) = -mu;
@@ -79,13 +100,23 @@ bounds.phase(1).path.upper(3) = .0001;
 for motor = 1:3
     bounds.phase(1).path.lower(end+1) = -max_voltage;
     bounds.phase(1).path.upper(end+1) = max_voltage;
+    
+    bounds.phase(2).path.lower(motor) = -max_voltage;
+    bounds.phase(2).path.upper(motor) = max_voltage;
 end
 
+% Continuity
+bounds.eventgroup(1).lower = zeros(1,11);
+bounds.eventgroup(1).upper = zeros(1,11);
 
 %% Initial Guess
 guess.phase(1).time = [0;0.2];
 guess.phase(1).state = [z0';z0'];
 guess.phase(1).control = zeros(2,3);
+
+guess.phase(2).time = [0.2;0.3];
+guess.phase(2).state = [z0';z0'];
+guess.phase(2).control = zeros(2,3);
 
 %% Mesh Setupmesh.method = 'hp-PattersonRao';
 mesh.tolerance = 1e-3;
@@ -123,7 +154,7 @@ n_phase = length(solution.phase);
 tout =[];
 zout = [];
 uout = [];
-for i = 1:length(n_phase)
+for i = 1:n_phase
     tout = [tout solution.phase(i).time'];
     zout = [zout solution.phase(i).state'];
     uout = [uout solution.phase(i).control'];
