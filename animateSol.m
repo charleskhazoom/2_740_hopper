@@ -55,6 +55,6 @@ function animateSol(tspan, x,p)
         set(h_CE,'XData',[rC(1) rE(1)]);
         set(h_CE,'YData',[rC(2) rE(2)]);
 
-        pause(.01)
+        pause(.09)
     end
 end

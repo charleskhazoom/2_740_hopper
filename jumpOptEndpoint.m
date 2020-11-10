@@ -1,7 +1,8 @@
 function output = jumpOptEndpoint(input)
 
-% Cost Function
-output.objective = -input.phase(2).finalstate(end,2); % max body height
+% Cost Function - max body height with minor torque minimization
+output.objective = -input.phase(2).finalstate(end,2) +...
+                        input.phase(1).integral;
 
 % Continuity Constraints
 tf = input.phase(1).finaltime;

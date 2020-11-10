@@ -14,9 +14,6 @@ for i = 1:length(input.phase(1).state(:,1))
     
     % Need to add reaction force constraints
     F(i,1:2) = x_augmented(6:7)'; % constraint force
-    
-    % Foot Positions
-    pFoot(i,1:2) = position_foot(input.phase(1).state(i,:)', input.auxdata.p);
 
 end
 % equality constraint on the dynamics
@@ -28,17 +25,16 @@ output(1).path(:,1) = F(:,1)./F(:,2); % abs(horiz_force/vert_force relates)< mu.
 % inequality path constraint on force
 output(1).path(:,2) = F(:,2); % second path constraint is vertical force can only be upwards
 
-% equality path constraint on foot position (stance feet on ground)
-output(1).path(:,3) = pFoot(:,2); % Foot must be on the groud
-
 % voltage ineq constraint on 3 motors
 kt = input.auxdata.p(27); 
 R  = input.auxdata.p(28);
 N  = input.auxdata.p(13);
-output(1).path(:,4) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).state(:,8)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
-output(1).path(:,5) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
-output(1).path(:,6) = (input.phase(1).control(:,3)/N)*R/kt + kt*input.phase(1).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
+output(1).path(:,3) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).state(:,8)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
+output(1).path(:,4) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
+output(1).path(:,5) = (input.phase(1).control(:,3)/N)*R/kt + kt*input.phase(1).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
 
+% Track integral of input squared
+output(1).integrand(:,1) = 0.001*sum(input.phase(1).control(:,:).*input.phase(1).control(:,:),2);
 
 %% Phase 2 - Flight
 
