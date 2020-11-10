@@ -33,8 +33,20 @@ output(1).path(:,3) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).s
 output(1).path(:,4) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
 output(1).path(:,5) = (input.phase(1).control(:,3)/N)*R/kt + kt*input.phase(1).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
 
-% Track integral of input squared
-output(1).integrand(:,1) = 0.001*sum(input.phase(1).control(:,:).*input.phase(1).control(:,:),2);
+% Integral of input squared (to minimize)
+output(1).integrand(:,1) = sum(input.phase(1).control(:,:).*input.phase(1).control(:,:),2);
+
+% Integral of horizontal velocity error
+output(1).integrand(:,2) = (input.phase(1).state(:,6)-0.5).*(input.phase(1).state(:,6)-0.5);
+
+% Integral of vertical velocity error
+output(1).integrand(:,3) = (input.phase(1).state(:,7)-4.0).*(input.phase(1).state(:,7)-4.0);
+
+% Integral of x position error
+output(1).integrand(:,4) = (input.phase(1).state(:,1)-0.1).*(input.phase(1).state(:,1)-0.1);
+
+% Integral of z position error
+output(1).integrand(:,5) = (input.phase(1).state(:,2)-0.3).*(input.phase(1).state(:,2)-0.3);
 
 %% Phase 2 - Flight
 

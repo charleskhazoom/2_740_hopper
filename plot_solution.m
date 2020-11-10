@@ -37,33 +37,33 @@ xlabel('Time (s)');
 legend('\tau_1','\tau_2','\tau_3')
 
 
-%% Foot position over time
-rE = zeros(2,length(tout));
-vE = zeros(2,length(tout));
-for i = 1:length(tout)
-    rE(:,i) = position_foot(z_out(:,i),p);
-    vE(:,i) = velocity_foot(z_out(:,i),p);
-end
-
-figure(fignb);
-fignb=fignb+1;
-clf;
-plot(tout,rE(1,:),'r','LineWidth',2)
-hold on
-plot(tout,rE(2,:),'b','LineWidth',2)
-title('Foot position')
-
-xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','y'});
-
-figure(fignb);
-fignb=fignb+1;
-clf;
-plot(tout,vE(1,:),'r','LineWidth',2)
-hold on
-plot(tout,vE(2,:),'b','LineWidth',2)
-title('Foot Velocity')
-
-xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
+% %% Foot position over time
+% rE = zeros(2,length(tout));
+% vE = zeros(2,length(tout));
+% for i = 1:length(tout)
+%     rE(:,i) = position_foot(z_out(:,i),p);
+%     vE(:,i) = velocity_foot(z_out(:,i),p);
+% end
+% 
+% figure(fignb);
+% fignb=fignb+1;
+% clf;
+% plot(tout,rE(1,:),'r','LineWidth',2)
+% hold on
+% plot(tout,rE(2,:),'b','LineWidth',2)
+% title('Foot position')
+% 
+% xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','y'});
+% 
+% figure(fignb);
+% fignb=fignb+1;
+% clf;
+% plot(tout,vE(1,:),'r','LineWidth',2)
+% hold on
+% plot(tout,vE(2,:),'b','LineWidth',2)
+% title('Foot Velocity')
+% 
+% xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
 
 
 %% Body Position, Joint Angles
@@ -121,4 +121,24 @@ plot(tout,drCOM(2,:));
 hold off;
 legend('x','y')
 title('COM velocity')
+
+%% Voltage
+figure(fignb);
+fignb=fignb+1;
+
+kt = p(27); 
+R  = p(28);
+N  = p(13);
+V_out(1,:) = (u_out(1,:)/N)*R/kt + kt*z_out(8,:)*N;
+V_out(2,:) = (u_out(2,:)/N)*R/kt + kt*z_out(9,:)*N;
+V_out(3,:) = (u_out(3,:)/N)*R/kt + kt*z_out(10,:)*N;
+
+plot(tout,V_out(1,:));
+hold on;
+plot(tout,V_out(2,:));
+plot(tout,V_out(3,:));
+hold off;
+legend('V_1','V_2','V_3')
+title('Voltage')
+
 

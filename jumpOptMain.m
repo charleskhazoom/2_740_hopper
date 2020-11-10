@@ -2,7 +2,7 @@ clear;clc;close all;
 addpath('dynamics_gen/')
 
 %% Set Auxillary Data
-m1 =.0393;% + .2; % 0.2 is motor mass
+m1 =.0393 + .2; % 0.2 is motor mass
 m2 =.0368;
 m3 = .00783;
 m4 = .0155;
@@ -14,10 +14,10 @@ l_O_m1=0.032;           l_B_m2=0.0344;
 l_A_m3=0.0622;          l_C_m4=0.0610;
 N = 18.75;
 Ir = 0.0035/N^2;
-g = 9.81;
+g = 1.81;
 
 % parameters to be adjusted according to design
-m_body = 0.186+0.211;%
+m_body = 0.186 +0.211;
 l_body = 0.04;
 l_arm = 0.1;
 l_cm_arm = 0.8*l_arm;
@@ -25,13 +25,11 @@ l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense 
 
 m_arm = 0.1; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2;
-%     restitution_coeff = 0.;
-%     friction_coeff = 0.3;
 ground_height = 0;
 
 %% Parameter vector
-mu = 0.5; % friction coef
-max_voltage = 20; % volts
+mu = 0.9; % friction coef
+max_voltage = 15; % volts
 motor_kt = 0.18;
 motor_R = 2;
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -49,14 +47,17 @@ z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 bounds.phase(1).initialtime.lower = 0;
 bounds.phase(1).initialtime.upper = 0;
 
-bounds.phase(1).finaltime.lower = 0.225;
-bounds.phase(1).finaltime.upper = 0.35;
+bounds.phase(1).finaltime.lower = 0.1;
+bounds.phase(1).finaltime.upper = 0.18;
 
 bounds.phase(2).initialtime.lower = bounds.phase(1).finaltime.lower;
 bounds.phase(2).initialtime.upper = bounds.phase(1).finaltime.upper;
 
-bounds.phase(2).finaltime.lower = bounds.phase(1).finaltime.lower+0.05;
+bounds.phase(2).finaltime.lower = bounds.phase(1).finaltime.lower+0.03;
 bounds.phase(2).finaltime.upper = bounds.phase(1).finaltime.upper+0.15;
+
+bounds.phase(2).duration.lower = 0.05;
+bounds.phase(2).duration.upper = 0.1;
 
 % State
 bounds.phase(1).initialstate.lower = z0';
@@ -78,8 +79,8 @@ bounds.phase(2).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(2).finalstate.upper = bounds.phase(1).state.upper;
 
 % Control
-bounds.phase(1).control.lower = [-70 -70 -70];
-bounds.phase(1).control.upper = [70 70 70];
+bounds.phase(1).control.lower = [-40 -40 -40];
+bounds.phase(1).control.upper = [40 40 40];
 
 bounds.phase(2).control.lower = [0 0 0];
 bounds.phase(2).control.upper = [0 0 0];
@@ -90,7 +91,7 @@ bounds.phase(1).path.upper(1) = mu;
 
 % unilateral bounds for force
 bounds.phase(1).path.lower(2) = 0;
-bounds.phase(1).path.upper(2) = 90;
+bounds.phase(1).path.upper(2) = 20;
 
 % bounds for voltage (3 motors)
 for motor = 1:3
@@ -106,14 +107,14 @@ bounds.eventgroup(1).lower = zeros(1,11);
 bounds.eventgroup(1).upper = zeros(1,11);
 
 % Integral
-bounds.phase(1).integral.lower = 0;
-bounds.phase(1).integral.upper = 100;
+bounds.phase(1).integral.lower = [0 0 0 0 0];
+bounds.phase(1).integral.upper = [1000 10 10 10 10];
 
 %% Initial Guess
 guess.phase(1).time = [0;bounds.phase(1).finaltime.upper];
 guess.phase(1).state = [z0';z0'];
 guess.phase(1).control = zeros(2,3);
-guess.phase(1).integral = 2;
+guess.phase(1).integral = [2 2 2 2 2];
 
 guess.phase(2).time = [bounds.phase(1).finaltime.upper;bounds.phase(2).finaltime.upper];
 guess.phase(2).state = [z0';z0'];
@@ -140,7 +141,7 @@ setup.bounds = bounds;
 setup.guess = guess;
 setup.mesh = mesh;
 setup.nlp.solver = 'ipopt';
-setup.nlp.ipoptoptions.maxiterations = 500;
+setup.nlp.ipoptoptions.maxiterations = 3650;
 
 setup.method = 'RPM-Differentiation';
 %setup.scales.method = 'automatic-guessUpdate';
