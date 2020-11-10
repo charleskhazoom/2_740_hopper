@@ -28,6 +28,15 @@ ylabel('Ground Force')
 xlabel('Time (s)');
 legend('x','y')
 
+%% force ratios
+Force_ratio = Fgnd(2,:)./Fgnd(1,:);
+
+figure(fignb);
+fignb=fignb+1;
+plot(tout,Force_ratio)
+ylabel('Ground Force Ratios')
+xlabel('Time (s)');
+% legend('x','y')
 %% Control Input
 figure(fignb);
 fignb=fignb+1;
