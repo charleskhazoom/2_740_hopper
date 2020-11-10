@@ -96,8 +96,8 @@ bounds.phase(1).path.upper(2) = 50;
 
 % bounds for voltage (3 motors)
 for motor = 1:3
-%     bounds.phase(1).path.lower(end+1) = -max_voltage;
-%     bounds.phase(1).path.upper(end+1) = max_voltage;
+    bounds.phase(1).path.lower(end+1) = -max_voltage;
+    bounds.phase(1).path.upper(end+1) = max_voltage;
     
     bounds.phase(2).path.lower(motor) = -max_voltage;
     bounds.phase(2).path.upper(motor) = max_voltage;
@@ -184,5 +184,6 @@ hold on
 % Target traj
 plot([-.2 .7],[ground_height ground_height],'k');
 animateSol(tout, zout,p);
+
 
 % plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
