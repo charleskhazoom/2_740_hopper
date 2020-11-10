@@ -29,7 +29,7 @@ ground_height = 0;
 
 %% Parameter vector
 mu = 0.9; % friction coef
-max_voltage = 15; % volts
+max_voltage = 45; % volts
 motor_kt = 0.18;
 motor_R = 2;
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -63,8 +63,8 @@ bounds.phase(2).duration.upper = 0.1;
 bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
-bounds.phase(1).state.lower = [-0.05 -0.1 -1.5*pi -1.5*pi -2*pi -2 -2 -80 -80 -80];
-bounds.phase(1).state.upper = [0.05 1 1.5*pi 1.5*pi 2*pi 8 8 80 80 0];
+bounds.phase(1).state.lower = [-0.06 -0.1 -1.5*pi -1.5*pi -2*pi -2 -2 -80 -80 -80];
+bounds.phase(1).state.upper = [0.06 0.5 1.5*pi 1.5*pi 2*pi 8 8 80 80 0];
 
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(1).finalstate.upper = bounds.phase(1).state.upper;
@@ -111,14 +111,24 @@ bounds.phase(1).integral.lower = [0 0 0 0 0];
 bounds.phase(1).integral.upper = [1000 10 10 10 10];
 
 %% Initial Guess
-guess.phase(1).time = [0;bounds.phase(1).finaltime.upper];
-guess.phase(1).state = [z0';z0'];
-guess.phase(1).control = zeros(2,3);
+[t_guess, z_guess, u_guess] = get_initial_guess(bounds.phase(1).finaltime.upper+bounds.phase(2).duration.upper,z0,p);
+guess.phase(1).time = t_guess{1};
+guess.phase(1).state = z_guess{1};
+guess.phase(1).control = u_guess{1}';
 guess.phase(1).integral = [2 2 2 2 2];
 
-guess.phase(2).time = [bounds.phase(1).finaltime.upper;bounds.phase(2).finaltime.upper];
-guess.phase(2).state = [z0';z0'];
-guess.phase(2).control = zeros(2,3);
+guess.phase(2).time = t_guess{2};
+guess.phase(2).state = z_guess{2};
+guess.phase(2).control = u_guess{2}';
+
+% guess.phase(1).time = [0;bounds.phase(1).finaltime.upper];
+% guess.phase(1).state = [z0';z0'];
+% guess.phase(1).control = zeros(2,3);
+% guess.phase(1).integral = [2 2 2 2 2];
+% 
+% guess.phase(2).time = [bounds.phase(1).finaltime.upper;bounds.phase(2).finaltime.upper];
+% guess.phase(2).state = [z0';z0'];
+% guess.phase(2).control = zeros(2,3);
 
 %% Mesh Setup
 mesh.method = 'hp-PattersonRao';
@@ -141,7 +151,7 @@ setup.bounds = bounds;
 setup.guess = guess;
 setup.mesh = mesh;
 setup.nlp.solver = 'ipopt';
-setup.nlp.ipoptoptions.maxiterations = 3650;
+setup.nlp.ipoptoptions.maxiterations = 150;
 
 setup.method = 'RPM-Differentiation';
 %setup.scales.method = 'automatic-guessUpdate';
