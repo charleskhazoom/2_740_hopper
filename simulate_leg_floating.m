@@ -48,7 +48,7 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
 %     tspan = linspace(0, tf, num_step); 
     
 %     z0 = [0;0.2; 10*pi/180; 10*pi/180; 0; 0;0;0;0;0]; %[-pi/4; pi/2; 0; 0];
-    desired_hip_pos0 = [0.03;0.08];
+    desired_hip_pos0 = [0.014;0.15];
     guess_leg_angle  = [10*pi/180; 10*pi/180];
     init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
     init_arm_angle=0;
