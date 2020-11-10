@@ -29,7 +29,7 @@ ground_height = 0;
 
 %% Parameter vector
 mu = 0.9; % friction coef
-max_voltage = 45; % volts
+max_voltage = 20; % volts
 motor_kt = 0.18;
 motor_R = 2;
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -37,7 +37,7 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
 auxdata.p = p;
 
 %% Set Bounds
-desired_hip_pos0 = [0.03;0.05];
+desired_hip_pos0 = [0.03;0.06];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
 init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
 init_arm_angle = 0;
@@ -47,24 +47,24 @@ z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 bounds.phase(1).initialtime.lower = 0;
 bounds.phase(1).initialtime.upper = 0;
 
-bounds.phase(1).finaltime.lower = 0.1;
-bounds.phase(1).finaltime.upper = 0.18;
+bounds.phase(1).finaltime.lower = 0.2;
+bounds.phase(1).finaltime.upper = 0.3;
+
+bounds.phase(2).duration.lower = 0.2;
+bounds.phase(2).duration.upper = 0.35;
 
 bounds.phase(2).initialtime.lower = bounds.phase(1).finaltime.lower;
 bounds.phase(2).initialtime.upper = bounds.phase(1).finaltime.upper;
 
-bounds.phase(2).finaltime.lower = bounds.phase(1).finaltime.lower+0.03;
-bounds.phase(2).finaltime.upper = bounds.phase(1).finaltime.upper+0.15;
-
-bounds.phase(2).duration.lower = 0.05;
-bounds.phase(2).duration.upper = 0.1;
+bounds.phase(2).finaltime.lower = bounds.phase(2).initialtime.lower+bounds.phase(2).duration.lower;
+bounds.phase(2).finaltime.upper = bounds.phase(2).initialtime.upper+bounds.phase(2).duration.upper;
 
 % State
 bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
-bounds.phase(1).state.lower = [-0.06 -0.1 -1.5*pi -1.5*pi -2*pi -2 -2 -80 -80 -80];
-bounds.phase(1).state.upper = [0.06 0.5 1.5*pi 1.5*pi 2*pi 8 8 80 80 0];
+bounds.phase(1).state.lower = [-0.08 -0.1 -1.5*pi -1.5*pi -2*pi -2 -2 -16 -16 -16];
+bounds.phase(1).state.upper = [0.35 0.5 1.5*pi 1.5*pi 2*pi 8 8 16 16 16];
 
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(1).finalstate.upper = bounds.phase(1).state.upper;
@@ -79,8 +79,8 @@ bounds.phase(2).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(2).finalstate.upper = bounds.phase(1).state.upper;
 
 % Control
-bounds.phase(1).control.lower = [-40 -40 -40];
-bounds.phase(1).control.upper = [40 40 40];
+bounds.phase(1).control.lower = [-25 -25 -25];
+bounds.phase(1).control.upper = [25 25 25];
 
 bounds.phase(2).control.lower = [0 0 0];
 bounds.phase(2).control.upper = [0 0 0];
@@ -91,7 +91,7 @@ bounds.phase(1).path.upper(1) = mu;
 
 % unilateral bounds for force
 bounds.phase(1).path.lower(2) = 0;
-bounds.phase(1).path.upper(2) = 20;
+bounds.phase(1).path.upper(2) = 30;
 
 % bounds for voltage (3 motors)
 for motor = 1:3
@@ -107,15 +107,15 @@ bounds.eventgroup(1).lower = zeros(1,11);
 bounds.eventgroup(1).upper = zeros(1,11);
 
 % Integral
-bounds.phase(1).integral.lower = [0 0 0 0 0];
-bounds.phase(1).integral.upper = [1000 10 10 10 10];
+%bounds.phase(1).integral.lower = [0 0 0 0 0 0];
+%bounds.phase(1).integral.upper = [20 10 10 10 10 100];
 
 %% Initial Guess
 [t_guess, z_guess, u_guess] = get_initial_guess(bounds.phase(1).finaltime.upper+bounds.phase(2).duration.upper,z0,p);
 guess.phase(1).time = t_guess{1};
 guess.phase(1).state = z_guess{1};
 guess.phase(1).control = u_guess{1}';
-guess.phase(1).integral = [2 2 2 2 2];
+%guess.phase(1).integral = [2 2 2 2 2 30];
 
 guess.phase(2).time = t_guess{2};
 guess.phase(2).state = z_guess{2};
@@ -132,10 +132,10 @@ guess.phase(2).control = u_guess{2}';
 
 %% Mesh Setup
 mesh.method = 'hp-PattersonRao';
-mesh.tolerance = 5e-3;
+mesh.tolerance = 3e-3;
 mesh.maxiterations = 3;
 mesh.colpointsmin = 4;
-mesh.colpointsmax = 10;
+mesh.colpointsmax = 12;
 
 %% Problem Setup
 setup.name = 'jumpOpt';
@@ -151,7 +151,7 @@ setup.bounds = bounds;
 setup.guess = guess;
 setup.mesh = mesh;
 setup.nlp.solver = 'ipopt';
-setup.nlp.ipoptoptions.maxiterations = 150;
+setup.nlp.ipoptoptions.maxiterations = 450;
 
 setup.method = 'RPM-Differentiation';
 %setup.scales.method = 'automatic-guessUpdate';
@@ -160,9 +160,12 @@ setup.scales.method = 'automatic-bounds';
 %% Solve
 output = gpops2(setup);
 solution = output.result.solution;
+interp_sol = output.result.interpsolution;
+
+%% Plot
+plot_solution2(interp_sol,bounds,p);
 
 %% Parse Solution
-
 n_phase = length(solution.phase);
 tout =[];
 zout = [];
@@ -172,21 +175,13 @@ for i = 1:n_phase
     zout = [zout solution.phase(i).state'];
     uout = [uout solution.phase(i).control'];
 end
-
 tLO = solution.phase(1).time(end); % time lift off is the last time of first phase
 
-%-------------------make all kind of plot---------------------------------%
-fignb=1;
-
-
-figure(fignb);
-fignb=fignb+1;
+figure();
 clf;
 hold on
-
-
 % Target traj
 plot([-.2 .7],[ground_height ground_height],'k');
 animateSol(tout, zout,p);
 
-plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
+% plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb

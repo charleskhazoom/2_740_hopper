@@ -20,7 +20,7 @@ end
 output(1).dynamics = dz1;
 
 % inequality path constrain on force ratios (friction)
-output(1).path(:,1) = F(:,1)./F(:,2); % abs(horiz_force/vert_force relates)< mu. % force constraint  
+output(1).path(:,1) = F(:,1)./F(:,2); % force constraint  
 
 % inequality path constraint on force
 output(1).path(:,2) = F(:,2); % second path constraint is vertical force can only be upwards
@@ -33,20 +33,24 @@ output(1).path(:,3) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).s
 output(1).path(:,4) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
 output(1).path(:,5) = (input.phase(1).control(:,3)/N)*R/kt + kt*input.phase(1).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
 
-% Integral of input squared (to minimize)
-output(1).integrand(:,1) = sum(input.phase(1).control(:,:).*input.phase(1).control(:,:),2);
+% % Integral of input squared (to minimize)
+% output(1).integrand(:,1) = sum(input.phase(1).control(:,:).*input.phase(1).control(:,:),2);
+% 
+% % Integral of horizontal velocity error
+% output(1).integrand(:,2) = (input.phase(1).state(:,6)-0.5).*(input.phase(1).state(:,6)-0.5);
+% 
+% % Integral of vertical velocity error
+% output(1).integrand(:,3) = (input.phase(1).state(:,7)-4.0).*(input.phase(1).state(:,7)-4.0);
+% 
+% % Integral of x position error
+% output(1).integrand(:,4) = (input.phase(1).state(:,1)-0.1).*(input.phase(1).state(:,1)-0.1);
+% 
+% % Integral of z position error
+% output(1).integrand(:,5) = (input.phase(1).state(:,2)-0.3).*(input.phase(1).state(:,2)-0.3);
+% 
+% % Integral of vertical reaction force
+% output(1).integrand(:,6) = (F(:,2)-20).*(F(:,2)-20);
 
-% Integral of horizontal velocity error
-output(1).integrand(:,2) = (input.phase(1).state(:,6)-0.5).*(input.phase(1).state(:,6)-0.5);
-
-% Integral of vertical velocity error
-output(1).integrand(:,3) = (input.phase(1).state(:,7)-4.0).*(input.phase(1).state(:,7)-4.0);
-
-% Integral of x position error
-output(1).integrand(:,4) = (input.phase(1).state(:,1)-0.1).*(input.phase(1).state(:,1)-0.1);
-
-% Integral of z position error
-output(1).integrand(:,5) = (input.phase(1).state(:,2)-0.3).*(input.phase(1).state(:,2)-0.3);
 
 %% Phase 2 - Flight
 
