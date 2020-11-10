@@ -32,3 +32,4 @@
 *.app
 *.m~
 dynamics_gen/*
+solution_without_path_cstraints.mat
