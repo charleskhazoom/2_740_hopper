@@ -29,7 +29,7 @@ xlabel('Time (s)');
 legend('x','y')
 
 %% force ratios
-Force_ratio = Fgnd(2,:)./Fgnd(1,:);
+Force_ratio = Fgnd(1,:)./Fgnd(2,:);
 
 figure(fignb);
 fignb=fignb+1;
