@@ -33,25 +33,6 @@ output(1).path(:,3) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).s
 output(1).path(:,4) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
 output(1).path(:,5) = (input.phase(1).control(:,3)/N)*R/kt + kt*input.phase(1).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
 
-% % Integral of input squared (to minimize)
-% output(1).integrand(:,1) = sum(input.phase(1).control(:,:).*input.phase(1).control(:,:),2);
-% 
-% % Integral of horizontal velocity error
-% output(1).integrand(:,2) = (input.phase(1).state(:,6)-0.5).*(input.phase(1).state(:,6)-0.5);
-% 
-% % Integral of vertical velocity error
-% output(1).integrand(:,3) = (input.phase(1).state(:,7)-4.0).*(input.phase(1).state(:,7)-4.0);
-% 
-% % Integral of x position error
-% output(1).integrand(:,4) = (input.phase(1).state(:,1)-0.1).*(input.phase(1).state(:,1)-0.1);
-% 
-% % Integral of z position error
-% output(1).integrand(:,5) = (input.phase(1).state(:,2)-0.3).*(input.phase(1).state(:,2)-0.3);
-% 
-% % Integral of vertical reaction force
-% output(1).integrand(:,6) = (F(:,2)-20).*(F(:,2)-20);
-
-
 %% Phase 2 - Flight
 
 dz2 = 0*input.phase(2).state;
@@ -63,9 +44,6 @@ for i = 1:length(input.phase(2).state(:,1))
     
     dz2(i,1:5) = input.phase(2).state(i,6:10);
     dz2(i,6:10) = qdd';
-    
-    % Foot Positions
-    %pFoot(i,1:2) = position_foot(input.phase(2).state(i,:)', input.auxdata.p);
 
 end
 % equality constraint on the dynamics

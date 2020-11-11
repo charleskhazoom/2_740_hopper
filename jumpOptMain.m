@@ -166,24 +166,25 @@ interp_sol = output.result.interpsolution;
 %% Plot
 plot_solution2(interp_sol,bounds,p);
 
-%% Parse Solution
-n_phase = length(solution.phase);
-tout =[];
-zout = [];
-uout = [];
-for i = 1:n_phase
-    tout = [tout solution.phase(i).time'];
-    zout = [zout solution.phase(i).state'];
-    uout = [uout solution.phase(i).control'];
-end
-tLO = solution.phase(1).time(end); % time lift off is the last time of first phase
+%% Compare and Animate simulated solution
+simulate_optimal_solution(interp_sol,p)
 
-figure();
-clf;
-hold on
-% Target traj
-plot([-.2 .7],[ground_height ground_height],'k');
-animateSol(tout, zout,p);
-
-
-% plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
+% %% Parse Solution
+% n_phase = length(solution.phase);
+% tout =[];
+% zout = [];
+% uout = [];
+% for i = 1:n_phase
+%     tout = [tout solution.phase(i).time'];
+%     zout = [zout solution.phase(i).state'];
+%     uout = [uout solution.phase(i).control'];
+% end
+% tLO = solution.phase(1).time(end); % time lift off is the last time of first phase
+% 
+% figure();
+% clf;
+% hold on
+% % Target traj
+% plot([-.2 .7],[ground_height ground_height],'k');
+% animateSol(tout, zout,p);
+% % plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
