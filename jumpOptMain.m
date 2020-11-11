@@ -14,7 +14,7 @@ l_O_m1=0.032;           l_B_m2=0.0344;
 l_A_m3=0.0622;          l_C_m4=0.0610;
 N = 18.75;
 Ir = 0.0035/N^2;
-g = 1.81;
+g = 9.81;
 
 % parameters to be adjusted according to design
 m_body = 0.186 +0.211;
@@ -37,7 +37,8 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
 auxdata.p = p;
 
 %% Set Bounds
-desired_hip_pos0 = [0.03;0.06];
+
+desired_hip_pos0 = [0.014;0.15];%[0.03;0.06];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
 init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
 init_arm_angle = 0;
@@ -63,8 +64,8 @@ bounds.phase(2).finaltime.upper = bounds.phase(2).initialtime.upper+bounds.phase
 bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
-bounds.phase(1).state.lower = [-0.02 -0.1 -1.5*pi -1.5*pi -2*pi -1 -1 -16 -16 -16];
-bounds.phase(1).state.upper = [0.35 0.5 1.5*pi 1.5*pi 2*pi 4 4 16 16 16];
+bounds.phase(1).state.lower = [-0.08 -0.1 -pi -pi -pi -2 -2 -16 -16 -16];
+bounds.phase(1).state.upper = [0.35   0.5  pi  pi  pi  8  8  16  16  16];
 
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(1).finalstate.upper = bounds.phase(1).state.upper;
@@ -91,7 +92,7 @@ bounds.phase(1).path.upper(1) = mu;
 
 % unilateral bounds for force
 bounds.phase(1).path.lower(2) = 0;
-bounds.phase(1).path.upper(2) = 30;
+bounds.phase(1).path.upper(2) = 50;
 
 % bounds for voltage (3 motors)
 for motor = 1:3
@@ -183,5 +184,6 @@ hold on
 % Target traj
 plot([-.2 .7],[ground_height ground_height],'k');
 animateSol(tout, zout,p);
+
 
 % plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
