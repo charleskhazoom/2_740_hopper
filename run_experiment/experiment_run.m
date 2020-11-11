@@ -1,27 +1,27 @@
-clear all; clc;
+%clear all; clc;
 
 %% LOAD RESULTS FROM TRAJECTORY OPTIMIZATION
 
-% data_opt = load(); % load in trajectory data
+data = load('first_trajectory.mat'); % load in trajectory data
 
 % opt_parameters = []; % total traj. time, dt, etc., as needed
-% torque_profile = [];
-% 
-% q_profile = [];
-% qd_profile = [];
+torque_profile = data.traj.torques;
+
+q_profile = data.traj.q;
+qd_profile = data.traj.qd;
 
 
 %% INITIALIZATION
 
 % Initial leg angles for encoder resets (negative of q1,q2 in lab handout due to direction motors are mounted)
-angle1_init = 0;            % hip angle
-angle2_init = -pi/2;        % knee angle
-angle3_init = 0;            % arm angle
+angle1_init = 0;            % hip angle % -75 deg
+angle2_init = -pi/2;        % knee angle % 32 deg
+angle3_init = 0;            % arm angle  % 142 deg (at extremes, min max)
 
 q0 = [angle1_init angle2_init angle3_init]';
 
 % Total experiment time is buffer,trajectory,buffer
-traj_time         = 0.5;    % this should be from opt_parameters
+traj_time         = 2;    % this should be from opt_parameters
 pre_buffer_time   = 3;      % give hopper 3s to reach initial config 
 post_buffer_time  = 3;
 
