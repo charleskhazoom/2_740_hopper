@@ -32,3 +32,7 @@
 *.app
 *.m~
 dynamics_gen/*
+interp_sol_9.8.mat
+intersting_sol.mat
+jumpOptIPOPTinfo.txt
+
