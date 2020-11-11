@@ -63,8 +63,8 @@ bounds.phase(2).finaltime.upper = bounds.phase(2).initialtime.upper+bounds.phase
 bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
-bounds.phase(1).state.lower = [-0.08 -0.1 -1.5*pi -1.5*pi -2*pi -2 -2 -16 -16 -16];
-bounds.phase(1).state.upper = [0.35 0.5 1.5*pi 1.5*pi 2*pi 8 8 16 16 16];
+bounds.phase(1).state.lower = [-0.02 -0.1 -1.5*pi -1.5*pi -2*pi -1 -1 -16 -16 -16];
+bounds.phase(1).state.upper = [0.35 0.5 1.5*pi 1.5*pi 2*pi 4 4 16 16 16];
 
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(1).finalstate.upper = bounds.phase(1).state.upper;
@@ -82,8 +82,8 @@ bounds.phase(2).finalstate.upper = bounds.phase(1).state.upper;
 bounds.phase(1).control.lower = [-25 -25 -25];
 bounds.phase(1).control.upper = [25 25 25];
 
-bounds.phase(2).control.lower = [0 0 0];
-bounds.phase(2).control.upper = [0 0 0];
+bounds.phase(2).control.lower = -[2 2 2];
+bounds.phase(2).control.upper = [2 2 2];
 
 % friction bounds for force
 bounds.phase(1).path.lower(1) = -mu;
@@ -132,7 +132,7 @@ guess.phase(2).control = u_guess{2}';
 
 %% Mesh Setup
 mesh.method = 'hp-PattersonRao';
-mesh.tolerance = 3e-3;
+mesh.tolerance = 1e-2;
 mesh.maxiterations = 3;
 mesh.colpointsmin = 4;
 mesh.colpointsmax = 12;
@@ -151,7 +151,7 @@ setup.bounds = bounds;
 setup.guess = guess;
 setup.mesh = mesh;
 setup.nlp.solver = 'ipopt';
-setup.nlp.ipoptoptions.maxiterations = 450;
+setup.nlp.ipoptoptions.maxiterations = 5550;
 
 setup.method = 'RPM-Differentiation';
 %setup.scales.method = 'automatic-guessUpdate';
