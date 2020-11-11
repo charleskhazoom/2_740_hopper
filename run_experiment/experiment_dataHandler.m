@@ -248,17 +248,20 @@ function output_data = experiment_dataHandler(time_param, q0, gains, control_met
     start_period                = time_param(2);    % In seconds 
     end_period                  = time_param(3);    % In seconds
 
+    % Gains
+    gains = [gains.K_q1 gains.K_q2 gains.K_q3 gains.D_qd1 gains.D_qd2 gains.D_qd3]';
+    
+    
     % Specify inputs
     input = [start_period end_period traj_time];
     input = [input q0'];
     input = [input gains'];
     input = [input control_method duty_max];
-    input = [input torque_profile(:)' q_profile(:)' qd_profile(:)']; % final size of input should be 28x1
-    
+    input = [input torque_profile(:)' q_profile(:)' qd_profile(:)'];
     params.timeout  = (start_period+traj_time+end_period);  
     
     output_size = 30;    % number of outputs expected
-    output_data = RunExperiment(frdm_ip,frdm_port,input,output_size,params);
+    output_data = experiment_interface(frdm_ip,frdm_port,input,output_size,params);
     linkaxes([a1 a2 a3 a4],'x')
     
 end
