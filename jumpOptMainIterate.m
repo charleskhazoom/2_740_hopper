@@ -23,7 +23,7 @@ l_arm = 0.1;
 l_cm_arm = 0.8*l_arm;
 l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
-m_arm = 0.5; % 100 grams ?
+m_arm = 0.1; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2;
 ground_height = 0;
 
@@ -65,7 +65,7 @@ bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
 bounds.phase(1).state.lower = [-0.08 -0.1 -pi -pi -pi -2 -2 -16 -16 -16];
-bounds.phase(1).state.upper = [0.35   0.5  pi  pi  pi  8  8  16  16  16];
+bounds.phase(1).state.upper = [0.35   0.5  pi  pi pi  8  8  16  16  16];
 
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(1).finalstate.upper = bounds.phase(1).state.upper;
@@ -80,8 +80,8 @@ bounds.phase(2).finalstate.lower = bounds.phase(1).state.lower;
 bounds.phase(2).finalstate.upper = bounds.phase(1).state.upper;
 
 % Control
-bounds.phase(1).control.lower = -[35 35 35];
-bounds.phase(1).control.upper = [35 35 35];
+bounds.phase(1).control.lower = [-25 -25 -25];
+bounds.phase(1).control.upper = [25 25 25];
 
 bounds.phase(2).control.lower = -[2 2 2];
 bounds.phase(2).control.upper = [2 2 2];
@@ -92,7 +92,7 @@ bounds.phase(1).path.upper(1) = mu;
 
 % unilateral bounds for force
 bounds.phase(1).path.lower(2) = 0;
-bounds.phase(1).path.upper(2) = 80;
+bounds.phase(1).path.upper(2) = 50;
 
 % bounds for voltage (3 motors)
 for motor = 1:3
@@ -159,39 +159,105 @@ setup.bounds = bounds;
 setup.guess = guess;
 setup.mesh = mesh;
 setup.nlp.solver = 'ipopt';
-setup.nlp.ipoptoptions.maxiterations = 5550;
 
-setup.method = 'RPM-Differentiation';
-%setup.scales.method = 'automatic-guessUpdate';
-setup.scales.method = 'automatic-bounds';
+cnt = 1;
+iter_max = [100 200 300 400 500 600 1000 2000];
+for i = iter_max
+    setup.nlp.ipoptoptions.maxiterations = i;
+    
+    setup.method = 'RPM-Differentiation';
+    setup.scales.method = 'automatic-bounds'; % 'automatic-guessUpdate';
+    
+    %% Solve
+    output = gpops2(setup);
+    solution{cnt} = output.result.solution;
+    interp_sol{cnt} = output.result.interpsolution;
+    
+    %% Compare via Plots
+    figure(1)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,1);solution{cnt}.phase(2).state(:,1)]')
+    hold on
+    title('Body Position - x (m)')
+    
+    figure(2)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,2);solution{cnt}.phase(2).state(:,2)]')
+    hold on
+    title('Body Position - y (m)')
+    
+    figure(3)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,3);solution{cnt}.phase(2).state(:,3)]')
+    hold on
+    title('Joint Position - \theta_1 (rad)')
+    
+    figure(4)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,4);solution{cnt}.phase(2).state(:,4)]')
+    hold on
+    title('Joint Position - \theta_2 (rad)')
+    
+    figure(5)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,5);solution{cnt}.phase(2).state(:,5)]')
+    hold on
+    title('Joint Position - \theta_3 (rad)')
+    
+    figure(6)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,6);solution{cnt}.phase(2).state(:,6)]')
+    hold on
+    title('Body Velocity - v_x (m/s)')
+    
+    figure(7)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,7);solution{cnt}.phase(2).state(:,7)]')
+    hold on
+    title('Body Velocity - v_y (m/s)')
+    
+    figure(8)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).state(:,10);solution{cnt}.phase(2).state(:,10)]')
+    hold on
+    title('Joint Velocity - \theta_3 (rad/s)')
+    
+    figure(9)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).control(:,1);solution{cnt}.phase(2).control(:,1)]')
+    hold on
+    title('Control Input - \tau_1 (Nm)')
+    
+    figure(10)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).control(:,2);solution{cnt}.phase(2).control(:,2)]')
+    hold on
+    title('Control Input - \tau_2 (Nm)')
+    
+    figure(11)
+    plot([solution{cnt}.phase(1).time;solution{cnt}.phase(2).time],...
+        [solution{cnt}.phase(1).control(:,3);solution{cnt}.phase(2).control(:,3)]')
+    hold on
+    title('Control Input - \tau_3 (Nm)')
+    
+    cnt = cnt + 1;
+end
+for i = 1:8
+    figure(i)
+    legend(['Iter: ',num2str(iter_max(1))],...
+        ['Iter: ',num2str(iter_max(2))],...
+        ['Iter: ',num2str(iter_max(3))],...
+        ['Iter: ',num2str(iter_max(4))],...
+        ['Iter: ',num2str(iter_max(5))],...
+        ['Iter: ',num2str(iter_max(6))],...
+        ['Iter: ',num2str(iter_max(7))],...
+        ['Iter: ',num2str(iter_max(8))])
+end
 
-%% Solve
-output = gpops2(setup);
-solution = output.result.solution;
-interp_sol = output.result.interpsolution;
 
-%% Plot
-plot_solution2(interp_sol,bounds,p);
 
-%% Compare and Animate simulated solution
-simulate_optimal_solution(interp_sol,p)
-
-% %% Parse Solution
-% n_phase = length(solution.phase);
-% tout =[];
-% zout = [];
-% uout = [];
-% for i = 1:n_phase
-%     tout = [tout solution.phase(i).time'];
-%     zout = [zout solution.phase(i).state'];
-%     uout = [uout solution.phase(i).control'];
-% end
-% tLO = solution.phase(1).time(end); % time lift off is the last time of first phase
+% %% Plot
+% plot_solution2(interp_sol,bounds,p);
 % 
-% figure();
-% clf;
-% hold on
-% % Target traj
-% plot([-.2 .7],[ground_height ground_height],'k');
-% animateSol(tout, zout,p);
-% % plot_solution(tout,zout,uout,tLO,p,fignb); %outputs next fignb
+% %% Compare and Animate simulated solution
+% simulate_optimal_solution(interp_sol,p)
