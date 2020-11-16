@@ -1,6 +1,15 @@
 close all
 clear
 
+% Objective functions
+% 1 - final x com position based on ballistic traj
+% 2 - launch velocity
+% 3 - hybrid
+% 4 - vertical velocity
+
+obj_func = 1;
+
+
 %% Add Libraries
 % add casadi library
 addpath(genpath('casadi'));
@@ -44,7 +53,7 @@ m_offset_y = 0.16;
 l_boom = 8*0.0254;
 h_boom = 0.3; % to be adjusted for ground.
 hob = 91.3/1000;
-k = 0.2877/1.35; % Nm/rad
+k = 0.2877;%/1.35; % Nm/rad
 
 %% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -52,7 +61,7 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
     m_offset_x m_offset_y l_boom h_boom hob k motor_kt motor_R]';        % parameters
 
 %% Initial conditions
-desired_hip_pos0 = [0.014;0.15];%[0.03;0.06];
+desired_hip_pos0 = [0.;0.1];%[0.03;0.06];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
 init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
 init_arm_angle = 0;
@@ -65,7 +74,7 @@ q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  1.5*pi  8  8  16  16  16]';
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-t_stance_vec = linspace(30,60,8);
+t_stance_vec = linspace(10,16,2);
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
 for j = 1:length(t_stance_vec)
@@ -93,7 +102,7 @@ for j = 1:length(t_stance_vec)
     
     %% Path Costs/Constraints
     
-    for k = 1:N_steps-1
+    for k = 1:N_steps
         
         disp([num2str(k),' of ',num2str(N_steps-1)]);
         
@@ -105,20 +114,22 @@ for j = 1:length(t_stance_vec)
         fk = f(:,k);
         
         % Dynamics
-        Ak = A_stance([qk;qdk],p);
-        bk = b_stance([qk;qdk],tauk,p);
-        
-        xk_augmented = Ak\(bk);
-        opti.subject_to(qddk == xk_augmented(1:5));
-        opti.subject_to(fk == xk_augmented(6:7));
-        
-        opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
-        opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
-        
-        opti.subject_to(fk(1) <= mu*fk(2)); % friction
-        opti.subject_to(fk(1) >= -mu*fk(2));
-        
-        opti.subject_to(fk(2) >= 0); % unilateral
+        if k < N_steps
+            Ak = A_stance([qk;qdk],p);
+            bk = b_stance([qk;qdk],tauk,p);
+            
+            xk_augmented = Ak\(bk);
+            opti.subject_to(qddk == xk_augmented(1:5));
+            opti.subject_to(fk == xk_augmented(6:7));
+            
+            opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
+            opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
+            
+            opti.subject_to(fk(1) <= mu*fk(2)); % friction
+            opti.subject_to(fk(1) >= -mu*fk(2));
+            
+            opti.subject_to(fk(2) >= 0); % unilateral
+        end
         
         % Voltage Inequality
         opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N <= max_voltage);
@@ -149,15 +160,32 @@ for j = 1:length(t_stance_vec)
     com_fin = com_pos([qN;qdN],p);
     dcom_fin = com_vel([qN;qdN],p);
     
-    vz = dcom_fin(2);
-    z = com_fin(2);
-    vx = dcom_fin(1);
-    x = com_fin(1);
-    t_flight = (1/g) * (vz + sqrt(vz^2 + 2*z*g));
-    x_land = x + vx*t_flight;
+    switch obj_func
+        case 1
+            g_with_boom = 0.5*g;
+            vz = dcom_fin(2);
+            z = com_fin(2);
+            vx = dcom_fin(1);
+            x = com_fin(1);
+            t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
+            x_land = x + vx*t_flight;
+            cost = -x_land; % horizontal landing position
+        case 2
+            cost = -(qN(1) + 20*qdN(1) + qN(2) + 20*qdN(2));
+        case 3
+            g_with_boom = 0.5*g;
+            vz = dcom_fin(2);
+            z = com_fin(2);
+            vx = dcom_fin(1);
+            x = com_fin(1);
+            t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
+            x_land = x + vx*t_flight;
+            cost = -(x_land + 0.5*qdN(2)); % horizontal landing position + vertical launch velocity
+        case 4
+            cost = -(qdN(2));
+    end
     
-    %cost = -com_fin(1) - com_fin(2); % position at end of stance
-    cost = -x_land; % horizontal landing position
+    
     opti.minimize(cost);
     
     %% Initial guess
@@ -180,7 +208,7 @@ for j = 1:length(t_stance_vec)
     stance_time(j) = ts{j}(end);
     
 end
-[~,indx] = min(landing_pos);
+[~,indx] = max(landing_pos);
 
 figure()
 plot(stance_time,landing_pos,'ro')
@@ -189,8 +217,60 @@ ylabel('Horizontal Jump Distance');
 
 %% Simulate, Plot, Compare
 [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(ts{indx},z0,taus{indx},p);
+
+% Turn these plots into a function
+% Compare body position/velocity
+figure()
+subplot(2,1,1)
+plot(tsim,zsim(:,1)','r')
+hold on
+plot(tsim,zsim(:,2)','b')
+plot(ts{indx},qs{indx}(1,:),'r--')
+plot(ts{indx},qs{indx}(2,:),'b--')
+xlabel('Time (s)')
+ylabel('Body Position (m)')
+legend('x','y')
+
+subplot(2,1,2)
+plot(tsim,zsim(:,6)','r')
+hold on
+plot(tsim,zsim(:,7)','b')
+plot(ts{indx},qds{indx}(1,:),'r--')
+plot(ts{indx},qds{indx}(2,:),'b--')
+xlabel('Time (s)')
+ylabel('Body Velocity (m/s)')
+legend('x','y')
+
+% Compare joint position/velocity
+figure()
+subplot(2,1,1)
+plot(tsim,zsim(:,3)','m')
+hold on
+plot(tsim,zsim(:,4)','g')
+plot(tsim,zsim(:,5)','k')
+plot(ts{indx},qs{indx}(3,:),'m--')
+plot(ts{indx},qs{indx}(4,:),'g--')
+plot(ts{indx},qs{indx}(5,:),'k--')
+xlabel('Time (s)')
+ylabel('Joint Position (rad)')
+legend('\theta_1','\theta_2','\theta_3')
+
+subplot(2,1,2)
+plot(tsim,zsim(:,8)','m')
+hold on
+plot(tsim,zsim(:,9)','g')
+plot(tsim,zsim(:,10)','k')
+plot(ts{indx},qds{indx}(3,:),'m--')
+plot(ts{indx},qds{indx}(4,:),'g--')
+plot(ts{indx},qds{indx}(5,:),'k--')
+xlabel('Time (s)')
+ylabel('Joint Velocity (rad/s)')
+legend('\theta_1','\theta_2','\theta_3')
+
 figure()
 animateSol(tsim,zsim',p);
+
+%% Sparsely sample trajectory at 1Khz
 
 
 

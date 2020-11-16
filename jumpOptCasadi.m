@@ -89,7 +89,7 @@ opti.subject_to(qd(:,1) == z0(6:10))
 
 %% Path Costs/Constraints
 
-for k = 1:N_steps-1
+for k = 1:N_steps
     
     disp([num2str(k),' of ',num2str(N_steps-1)]);
     
@@ -101,20 +101,22 @@ for k = 1:N_steps-1
     fk = f(:,k);
     
     % Dynamics
-    Ak = A_stance([qk;qdk],p);
-    bk = b_stance([qk;qdk],tauk,p);
-    
-    xk_augmented = Ak\(bk);
-    opti.subject_to(qddk == xk_augmented(1:5));
-    opti.subject_to(fk == xk_augmented(6:7));
-    
-    opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
-    opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
-    
-    opti.subject_to(fk(1) <= mu*fk(2)); % friction
-    opti.subject_to(fk(1) >= -mu*fk(2));
-    
-    opti.subject_to(fk(2) >= 0); % unilateral
+    if k < N_steps
+        Ak = A_stance([qk;qdk],p);
+        bk = b_stance([qk;qdk],tauk,p);
+        
+        xk_augmented = Ak\(bk);
+        opti.subject_to(qddk == xk_augmented(1:5));
+        opti.subject_to(fk == xk_augmented(6:7));
+        
+        opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
+        opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
+        
+        opti.subject_to(fk(1) <= mu*fk(2)); % friction
+        opti.subject_to(fk(1) >= -mu*fk(2));
+        
+        opti.subject_to(fk(2) >= 0); % unilateral
+    end
     
     % Voltage Inequality
     opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N <= max_voltage);
@@ -145,11 +147,13 @@ qdN = qd(:,N_steps);
 com_fin = com_pos([qN;qdN],p);
 dcom_fin = com_vel([qN;qdN],p);
 
+g_with_boom = 0.5*g;
+
 vz = dcom_fin(2);
 z = com_fin(2);
 vx = dcom_fin(1);
 x = com_fin(1);
-t_flight = (1/g) * (vz + sqrt(vz^2 + 2*z*g));
+t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
 x_land = x + vx*t_flight;
 
 %cost = -com_fin(1) - com_fin(2); % position at end of stance
