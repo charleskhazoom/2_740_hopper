@@ -5,7 +5,7 @@ function save_traj(time,z,u,name,dt_interp)
     z_interp = interp1(time,z',t_interp)';
     u_interp = interp1(time,u',t_interp)';
     
-    traj.time = time;
+    traj.time = t_interp;
     traj.q = z_interp(3:5,:);
     traj.qd = z_interp(8:10,:);
     traj.torques = u_interp;
