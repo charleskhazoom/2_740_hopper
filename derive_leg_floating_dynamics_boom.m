@@ -1,5 +1,5 @@
 clear
-path_sym_dynamics = 'dynamics_gen/';
+path_sym_dynamics = 'dynamics_gen_boom/';
 addpath(path_sym_dynamics)
 
 write_dynamics_files = true;
