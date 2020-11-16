@@ -17,7 +17,7 @@ function animateSol(tspan, x,p)
     %Step through and update animation
     for i = 1:length(tspan)
         % skip frame.
-        if mod(i,1)
+        if mod(i,10)
             continue;
         end
         t = tspan(i);
