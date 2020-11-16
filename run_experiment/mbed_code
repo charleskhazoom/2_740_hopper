@@ -1,0 +1,493 @@
+#include "mbed.h"
+#include "rtos.h"
+#include "EthernetInterface.h"
+#include "ExperimentServer.h"
+#include "QEI.h"
+#include "BezierCurve.h"
+#include "MotorShield.h"
+#include "HardwareSetup.h"
+#include "Matrix.h"
+#include "MatrixMath.h"
+
+#define PULSE_TO_RAD (2.0f*3.14159f / 1200.0f)
+
+#define size_torqueTraj 25
+#define size_jointTraj 25
+#define size_inputs 14+9*size_torqueTraj
+#define size_outputs 30
+
+// Initializations
+Serial pc(USBTX, USBRX);    // USB Serial Terminal
+ExperimentServer server;    // Object that lets us communicate with MATLAB
+Timer t;                    // Timer to measure elapsed time of experiment
+
+// Leg motors:
+QEI encoderA(PE_9,PE_11, NC, 1200, QEI::X4_ENCODING);  // MOTOR A ENCODER (no index, 1200 counts/rev, Quadrature encoding)
+QEI encoderB(PA_5, PB_3, NC, 1200, QEI::X4_ENCODING);  // MOTOR B ENCODER (no index, 1200 counts/rev, Quadrature encoding)
+
+// Arm motor:
+QEI encoderC(PC_6, PC_7, NC, 1200, QEI::X4_ENCODING);  // MOTOR C ENCODER (no index, 1200 counts/rev, Quadrature encoding)
+
+// Extra
+QEI encoderD(PD_12, PD_13, NC, 1200, QEI::X4_ENCODING);// MOTOR D ENCODER (no index, 1200 counts/rev, Quadrature encoding)
+
+MotorShield motorShield(12000); //initialize the motor shield with a period of 12000 ticks or ~20kHZ
+Ticker currentLoop;
+
+// Variables for q1 (hip)
+float current1;
+float current_des1 = 0;
+float prev_current_des1 = 0;
+float current_int1 = 0;
+float angle1;
+float velocity1;
+float duty_cycle1;
+float angle1_init;
+
+// Variables for q2 (knee)
+float current2;
+float current_des2 = 0;
+float prev_current_des2 = 0;
+float current_int2 = 0;
+float angle2;
+float velocity2;
+float duty_cycle2;
+float angle2_init;
+
+// Variables for q3 (arm)
+float current3;
+float current_des3 = 0;
+float prev_current_des3 = 0;
+float current_int3 = 0;
+float angle3;
+float velocity3;
+float duty_cycle3;
+float angle3_init;
+
+// Fixed kinematic parameters
+const float l_OA=.011;
+const float l_OB=.042;
+const float l_AC=.096;
+const float l_DE=.091;
+const float m1 =.0393 + .2;
+const float m2 =.0368;
+const float m3 = .00783;
+const float m4 = .0155;
+const float I1 = 0.0000251;  //25.1 * 10^-6;
+const float I2 = 0.0000535;  //53.5 * 10^-6;
+const float I3 = 0.00000925; //9.25 * 10^-6;
+const float I4 = 0.0000222;  //22.176 * 10^-6;
+const float l_O_m1=0.032;
+const float l_B_m2=0.0344;
+const float l_A_m3=0.0622;
+const float l_C_m4=0.0610;
+const float N = 18.75;
+const float Ir = 0.0035/pow(N,2);
+
+// Design parameters
+const float m_body = 0.186+0.211;
+const float l_body = 0.04;
+const float l_arm = 0.10;
+const float l_cm_arm = 0.8*l_arm;
+const float m_arm = 0.1;
+const float I_arm = 0.00064; // calculated with I = ml^2, not from CAD
+
+// Timing parameters
+float current_control_period_us = 200.0f;     // 5kHz current control loop
+float impedance_control_period_us = 1000.0f;  // 1kHz impedance control loop
+float start_period, traj_period, end_period;
+
+// Control parameters
+float current_Kp = 4.0f;
+float current_Ki = 0.4f;
+float current_int_max = 3.0f;
+float K_q1;
+float K_q2;
+float K_q3;
+float D_qd1;
+float D_qd2;
+float D_qd3;
+int control_method = 0; // defaults to using just ff torque
+float duty_max;
+
+// Model parameters
+float supply_voltage = 12;     // motor supply voltage
+float R = 2.0f;                // motor resistance
+float k_t = 0.18f;             // motor torque constant
+float nu = 0.0005;             // motor viscous friction
+
+// Current control interrupt function
+void CurrentLoop()
+{
+    // This loop sets the motor voltage commands using PI current controllers with feedforward terms.
+    //use the motor shield as follows:
+    //motorShield.motorAWrite(DUTY CYCLE, DIRECTION), DIRECTION = 0 is forward, DIRECTION =1 is backwards.
+
+    //***************************************************************************
+    //HIP MOTOR
+    current1 = -(((float(motorShield.readCurrentA())/65536.0f)*30.0f)-15.0f);           // measure current
+    velocity1 = encoderA.getVelocity() * PULSE_TO_RAD;                                  // measure velocity
+    float err_c1 = current_des1 - current1;                                             // current errror
+    current_int1 += err_c1;                                                             // integrate error
+    current_int1 = fmaxf( fminf(current_int1, current_int_max), -current_int_max);      // anti-windup
+    float ff1 = R*current_des1 + k_t*velocity1;                                         // feedforward terms
+    duty_cycle1 = (ff1 + current_Kp*err_c1 + current_Ki*current_int1)/supply_voltage;   // PI current controller
+
+    float absDuty1 = abs(duty_cycle1);
+    if (absDuty1 > duty_max) {
+        duty_cycle1 *= duty_max / absDuty1;
+        absDuty1 = duty_max;
+    }
+    if (duty_cycle1 < 0) { // backwards
+        motorShield.motorAWrite(absDuty1, 1);
+    } else { // forwards
+        motorShield.motorAWrite(absDuty1, 0);
+    }
+    prev_current_des1 = current_des1;
+
+    //****************************************************************************
+    //KNEE MOTOR
+    current2     = -(((float(motorShield.readCurrentB())/65536.0f)*30.0f)-15.0f);       // measure current
+    velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;                                  // measure velocity
+    float err_c2 = current_des2 - current2;                                             // current error
+    current_int2 += err_c2;                                                             // integrate error
+    current_int2 = fmaxf( fminf(current_int2, current_int_max), -current_int_max);      // anti-windup
+    float ff2 = R*current_des2 + k_t*velocity2;                                         // feedforward terms
+    duty_cycle2 = (ff2 + current_Kp*err_c2 + current_Ki*current_int2)/supply_voltage;   // PI current controller
+
+    float absDuty2 = abs(duty_cycle2);
+    if (absDuty2 > duty_max) {
+        duty_cycle2 *= duty_max / absDuty2;
+        absDuty2 = duty_max;
+    }
+    if (duty_cycle2 < 0) { // backwards
+        motorShield.motorBWrite(absDuty2, 1);
+    } else { // forwards
+        motorShield.motorBWrite(absDuty2, 0);
+    }
+    prev_current_des2 = current_des2;
+
+    //***************************************************************************
+    //ARM MOTOR
+    current3     = -(((float(motorShield.readCurrentC())/65536.0f)*30.0f)-15.0f);       // measure current
+    velocity3 = encoderC.getVelocity() * PULSE_TO_RAD;                                  // measure velocity
+    float err_c3 = current_des3 - current3;                                             // current error
+    current_int3 += err_c3;                                                             // integrate error
+    current_int3 = fmaxf( fminf(current_int3, current_int_max), -current_int_max);      // anti-windup
+    float ff3 = R*current_des3 + k_t*velocity3;                                         // feedforward terms
+    duty_cycle3 = (ff3 + current_Kp*err_c3 + current_Ki*current_int3)/supply_voltage;   // PI current controller
+
+    float absDuty3 = abs(duty_cycle3);
+    if (absDuty3 > duty_max) {
+        duty_cycle3 *= duty_max / absDuty3;
+        absDuty3 = duty_max;
+    }
+    if (duty_cycle3 < 0) { // backwards
+        motorShield.motorCWrite(absDuty3, 1);
+    } else { // forwards
+        motorShield.motorCWrite(absDuty3, 0);
+    }
+    prev_current_des3 = current_des3;
+}
+
+int main (void)
+{
+    // Object for torque profile
+    //BezierCurve tauDes_bez(3,size_torqueTraj-1);
+
+    // Object for joint position profile
+    //BezierCurve qDes_bez(3,size_jointTraj-1);
+
+    // Object for joint velocity profile
+    //BezierCurve qdDes_bez(3,size_jointTraj-1);
+
+    // Link the terminal with our server and start it up
+    server.attachTerminal(pc);
+    server.init();
+
+    // Continually get input from MATLAB and run experiments
+    float input_params[size_inputs];
+    pc.printf("%f",input_params[0]);
+
+    while(1) {
+        // If there are new inputs, this code will run
+        if (server.getParams(input_params,size_inputs)) {
+
+            // Get inputs from MATLAB
+            start_period                = input_params[0];    // First buffer time, before trajectory
+            end_period                  = input_params[1];    // Second buffer time, after trajectory
+            traj_period                 = input_params[2];    // Total trajectory time
+
+            angle1_init                 = input_params[3];    // Initial angle for q1 (hip, rad)
+            angle2_init                 = input_params[4];    // Initial angle for q2 (knee, rad)
+            angle3_init                 = input_params[5];    // Initial angle for q3 (arm, rad)
+
+            K_q1                        = input_params[6];    // Joint space stiffness for hip (N/rad)
+            K_q2                        = input_params[7];    // Joint space stiffness for knee (N/rad)
+            K_q3                        = input_params[8];    // Joint space stiffness for arm (N/rad)
+            D_qd1                        = input_params[9];   // Joint space damping for arm (Ns/rad)
+            D_qd2                        = input_params[10];   // Joint space damping for knee (Ns/rad)
+            D_qd3                        = input_params[11];  // Joint space damping for hip (Ns/rad)
+
+            control_method              = int(input_params[12]);    // Controller choices: feedfwd torque = 0, PD control = 1, both = 2
+
+            duty_max                    = input_params[13];   // Maximum duty factor
+
+            //**************************************************************
+            // LOADING OPTIMIZED PROFILES AND GENERATING BEZIER TRAJECTORIES
+
+            int last_index = 14; // index to track where profiles begin and end
+
+            // Load torque profile:
+            float torque_profile[3*(size_torqueTraj)];
+            for(int i = 0; i < 3*(size_torqueTraj); i++) {
+              torque_profile[i] = input_params[last_index+i];
+            }
+            //tauDes_bez.setPoints(torque_profile);
+            last_index = last_index + 3*(size_torqueTraj);
+
+
+            // Load joint angle profile:
+            float q_profile[3*(size_jointTraj)];
+            for(int i = 0; i < 3*(size_jointTraj); i++) {
+              q_profile[i] = input_params[last_index+i];
+            }
+            // qDes_bez.setPoints(q_profile);
+            last_index = last_index + 3*(size_jointTraj);
+
+
+            // Load joint velocity profile:
+            float qd_profile[3*(size_jointTraj)];
+            for(int i = 0; i < 3*(size_jointTraj); i++) {
+              qd_profile[i] = input_params[last_index+i];
+            }
+            //qdDes_bez.setPoints(qd_profile);
+
+
+            // Attach current loop interrupt
+            currentLoop.attach_us(CurrentLoop,current_control_period_us);
+
+            // Setup experiment
+            t.reset();
+            t.start();
+            encoderA.reset();
+            encoderB.reset();
+            encoderC.reset();
+            encoderD.reset();
+
+            motorShield.motorAWrite(0, 0); //turn motor A off
+            motorShield.motorBWrite(0, 0); //turn motor B off
+            motorShield.motorCWrite(0, 0); //turn motor C off
+
+            // Run experiment
+
+            int iter = 0;
+
+            while( t.read() < start_period + traj_period + end_period) {
+
+                // Read encoders to get motor states
+                angle1 = encoderA.getPulses() *PULSE_TO_RAD + angle1_init;
+                velocity1 = encoderA.getVelocity() * PULSE_TO_RAD;
+
+                angle2 = encoderB.getPulses() * PULSE_TO_RAD + angle2_init;
+                velocity2 = encoderB.getVelocity() * PULSE_TO_RAD;
+
+                angle3 = encoderC.getPulses() * PULSE_TO_RAD + angle3_init;
+                velocity3 = encoderC.getVelocity() * PULSE_TO_RAD;
+
+                const float th1 = angle1;
+                const float th2 = angle2;
+                const float th3 = angle3;
+                const float dth1= velocity1;
+                const float dth2= velocity2;
+                const float dth3 = velocity3;
+
+                // Set gains based on buffer and traj times, then calculate desired x,y from Bezier trajectory at current time if necessary
+                float teff  = 0;
+                float vMult = 0;
+                if( t < start_period) {
+                    if (K_q1 > 0 || K_q2 > 0 || K_q3 > 0) {
+                        K_q1 = 3;
+                        K_q2 = 3;
+                        K_q3 = 3;
+                        D_qd1 = 0.1;
+                        D_qd2 = 0.1;
+                        D_qd3 = 0.1;
+                    }
+                    teff = 0;
+                }
+                else if (t < start_period + traj_period)
+                {
+                    K_q1 = input_params[7];  // Hip stiffness N/rad
+                    K_q2 = input_params[8];  // Knee stiffness N/rad
+                    K_q3 = input_params[9];  // Arm stiffness N/rad
+                    D_qd1 = input_params[9];  // Hip damping N/(rad/s)
+                    D_qd2 = input_params[10]; // Knee damping N/(rad/s)
+                    D_qd3 = input_params[11]; // Arm damping N/(rad/s)
+                    teff = (t-start_period);
+                    vMult = 1;
+                }
+                else
+                {
+                    teff = traj_period;
+                    vMult = 0;
+                }
+
+                // desired values
+                float tau_des[3], q_des[3], qd_des[3];
+                for (int i = 0; i < 3; i++){
+                    if (t < start_period){
+                        tau_des[i] = 0;
+                        q_des[i] = q_profile[i];
+                        qd_des[i] = 0;
+                    } else {
+                        tau_des[i] = torque_profile[3*iter+i];
+                        q_des[i] = q_profile[3*iter+i];
+                        qd_des[i] = qd_profile[3*iter+i];}
+                }
+
+                //tauDes_bez.evaluate(teff/traj_period,tau_des);
+                //qDes_bez.evaluate(teff/traj_period,q_des);
+                //qdDes_bez.evaluateDerivative(teff/traj_period,qd_des); // get qdDes from derivative of Bezier of qDes
+                //qdDes_bez.evaluate(teff/traj_period,qd_des); // alternatively, get qdDes directly from optimized profile. Potential error?
+
+                // From old code -> not sure why velocities need to be scaled wrt traj. time. Don't think it's needed.
+                // qd_des[0]/=traj_period;
+                // qd_des[1]/=traj_period;
+                // qd_des[2]/=traj_period;
+
+                qd_des[0]*=vMult; // ensures zero velocity when moving to starting configuration
+                qd_des[1]*=vMult;
+                qd_des[2]*=vMult;
+
+
+                // Calculate the forward kinematics (position and velocity)
+                float xFoot =   sin(th1)*(l_DE - l_OA + l_OB) + l_AC*sin(th1 + th2) + l_OA*sin(th1);
+                float yFoot = - cos(th1)*(l_DE - l_OA + l_OB) - l_AC*cos(th1 + th2) - l_OA*cos(th1);
+                float xArm  =   l_arm*sin(th3); // assuming th3 defined relative to line coincident with body pointing down
+                float yArm  =   l_body - cos(th3);
+                float dxFoot =  dth1*(cos(th1)*(l_DE - l_OA + l_OB) + l_AC*cos(th1 + th2) + l_OA*cos(th1)) + dth2*l_AC*cos(th1 + th2);
+                float dyFoot =  dth1*(sin(th1)*(l_DE - l_OA + l_OB) + l_AC*sin(th1 + th2) + l_OA*sin(th1)) + dth2*l_AC*sin(th1 + th2);
+                float dxArm =   dth3*l_arm*cos(th3);
+                float dyArm =   dth3*sin(th3);
+
+                // Calculate the desired forward kinematics
+                float xFootDes =   sin(q_des[0])*(l_DE - l_OA + l_OB) + l_AC*sin(q_des[0] + q_des[1]) + l_OA*sin(q_des[0]);
+                float yFootDes = - cos(q_des[0])*(l_DE - l_OA + l_OB) - l_AC*cos(q_des[0] + q_des[1]) - l_OA*cos(q_des[0]);
+                float xArmDes  =   l_arm*sin(q_des[2]); // assuming th3 defined relative to line coincident with body pointing down
+                float yArmDes  =   l_body - cos(q_des[2]);
+                float dxFootDes =  qd_des[0]*(cos(q_des[0])*(l_DE - l_OA + l_OB) + l_AC*cos(q_des[0] + q_des[1]) + l_OA*cos(q_des[0])) + qd_des[1]*l_AC*cos(q_des[0] + q_des[1]);
+                float dyFootDes =  qd_des[0]*(sin(q_des[0])*(l_DE - l_OA + l_OB) + l_AC*sin(q_des[0] + q_des[1]) + l_OA*sin(q_des[0])) + qd_des[1]*l_AC*sin(q_des[0] + q_des[1]);
+                float dxArmDes =   qd_des[2]*l_arm*cos(q_des[2]);
+                float dyArmDes =   qd_des[2]*sin(q_des[2]);
+
+
+                // Calculate error variables
+                float e_th1 = q_des[0] - th1;
+                float e_th2 = q_des[1] - th2;
+                float e_th3 = q_des[2] - th3;
+                float de_th1 = qd_des[0] - dth1;
+                float de_th2 = qd_des[1] - dth2;
+                float de_th3 = qd_des[2] - dth3;
+
+                // Set desired currents
+                float current_ff[3], current_PD[3];
+                for(int i = 0; i < 3; i++){                                                  // set feedforward currents
+                    current_ff[i] = tau_des[i]/k_t;}
+
+                current_PD[0] = (K_q1*(q_des[0] - th1)+D_qd1*(qd_des[0]-dth1))/k_t;          // set PD currents
+                current_PD[1] = (K_q2*(q_des[1] - th2)+D_qd2*(qd_des[1]-dth2))/k_t;
+                current_PD[2] = (K_q3*(q_des[2] - th3)+D_qd3*(qd_des[2]-dth3))/k_t;
+
+                if( t < start_period) {
+                    control_method = 1;}
+
+
+                // **************
+                // CONTROL CHOICE      (there may be issues with setting current_des inside a switch statement with the current loop interrupt, make sure to check)
+                switch(control_method){
+                    case 0:                   // feedforward torque only
+                        current_des1 = current_ff[0];
+                        current_des2 = current_ff[1];
+                        current_des3 = current_ff[2];
+                        break;
+
+                    case 1:                   // Joint PD control only
+                        current_des1 = current_PD[0];
+                        current_des2 = current_PD[1];
+                        current_des3 = current_PD[2];
+                        break;
+
+                    case 2:                   // both combined
+                        current_des1 = current_ff[0] + current_PD[0];
+                        current_des2 = current_ff[1] + current_PD[1];
+                        current_des3 = current_ff[2] + current_PD[2];
+                        break;
+
+                    default:
+                        pc.printf("Invalid control method selector.\n");
+                        exit(-100);
+                        break;
+                }
+
+                // Form output to send to MATLAB
+                float output_data[size_outputs];
+                // current time
+                output_data[0] = t.read();
+                // motor 1 state
+                output_data[1] = angle1;
+                output_data[2] = velocity1;
+                output_data[3] = current1;
+                output_data[4] = current_des1;
+                output_data[5] = duty_cycle1;
+                // motor 2 state
+                output_data[6] = angle2;
+                output_data[7] = velocity2;
+                output_data[8] = current2;
+                output_data[9] = current_des2;
+                output_data[10]= duty_cycle2;
+                // motor 3 state
+                output_data[11] = angle3;
+                output_data[12] = velocity3;
+                output_data[13] = current3;
+                output_data[14] = current_des3;
+                output_data[15]= duty_cycle3;
+                // foot and arm state
+                output_data[16] = xFoot;
+                output_data[17] = yFoot;
+                output_data[18] = dxFoot;
+                output_data[19] = dyFoot;
+                output_data[20] = xArm;
+                output_data[21] = yArm;
+                output_data[22] = dxArm;
+                output_data[23] = dyArm;
+
+                output_data[24] = q_des[0];
+                output_data[25] = q_des[1];
+                output_data[26] = q_des[2];
+                output_data[27] = qd_des[0];
+                output_data[28] = qd_des[1];
+                output_data[29] = qd_des[2];
+
+                // can add calculations for more outputs as needed, currently not outputting desired position of arm and foot
+
+                // Send data to MATLAB
+                server.sendData(output_data,size_outputs);
+
+                wait_us(impedance_control_period_us);
+                if(t > start_period){
+                    iter++;}
+            }
+
+            // Cleanup after experiment
+            server.setExperimentComplete();
+            currentLoop.detach();
+            motorShield.motorAWrite(0, 0); //turn motor A off
+            motorShield.motorBWrite(0, 0); //turn motor B off
+            motorShield.motorCWrite(0, 0); //turn motor B off
+
+        } // end if
+
+    } // end while
+
+} // end main

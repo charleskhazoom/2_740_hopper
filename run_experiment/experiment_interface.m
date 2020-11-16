@@ -67,7 +67,7 @@ function output = experiment_interface(dest_ip,port,input,output_size,params)
  
     % create port and bind handler
     u = udp(dest_ip,port);
-    u.InputBufferSize = 100000;
+    u.InputBufferSize = 1000000;
     u.OutputBufferSize = 1000000;
     u.DatagramReceivedFcn = @recv;
     u.DatagramTerminateMode = 'on';
