@@ -1,6 +1,7 @@
 function simulate_leg_floating()
-path_sym_dynamics = 'dynamics_gen/';
+path_sym_dynamics = 'dynamics_gen_boom/';
 addpath(path_sym_dynamics)
+close all
 %% description of the variables
 % q   = [x;y;th1  ; th2 ; th3];      % generalized coordinates
 % dq  = [dx;dy;dth1 ; dth2; dth3];    % first time derivatives
@@ -30,7 +31,7 @@ addpath(path_sym_dynamics)
     l_cm_arm = 0.8*l_arm;
     l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
-    m_arm = 0.1; % 100 grams ?
+    m_arm = 0.2; % 100 grams ?
     I_arm = m_arm*l_cm_arm^2;
 %     restitution_coeff = 0.;
 %     friction_coeff = 0.3;
@@ -42,9 +43,9 @@ addpath(path_sym_dynamics)
  m_offset_x = 0.4;
  m_offset_y = 0.16;
  l_boom = 8*0.0254;
- h_boom = 0.3; % to be adjusted for ground.
+ h_boom = 0.2281;%0.3; % to be adjusted for ground.
  hob = 91.3/1000;
- k = 0.2877/1.35; % Nm/rad
+ k = 0.2877/1; % Nm/rad
     %% Parameter vector
  
  p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -131,15 +132,16 @@ fignb=1;
     fignb = plot_solution(tout,z_out,u_out,tLO,p,fignb);
     
     %% save trajectoryname
-    name = 'dummy_traj_name'
-    save_traj(tout,z_out,u_out,name)
+    name = 'some_traj_for_se_hwan'
+    dt_traj = 0.001;
+    save_traj(tout,z_out,u_out,name,dt_traj)
 end
 
 function tau = control_law_stance(t, z, p)
  
-    tau = [0.6;-0.6;0];
+    tau = [2;-1;0];
     tau = saturate_torque(z,tau,p);
-
+%     tau = [0;0;0];
 % 
 end
 
