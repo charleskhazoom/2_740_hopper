@@ -16,11 +16,15 @@ t_stance = t_out;
 z_stance = z_out;
 
 %% Simulate Flight
-flight_iter_max = 50000;
+flight_iter_max = 5000;
 iter = 0;
 com_height = 1;
+com_vert_velocity = -10;
+com_vert_velocity_prev = 10;
 t_flight = time(end);
-while (iter < flight_iter_max && com_height > 0)
+while (iter < flight_iter_max && com_height > 0 && com_vert_velocity < com_vert_velocity_prev)
+    com_vert_velocity_prev = [0 1 0]*com_vel(z0,p);
+    
     [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,[0;0;0],p),...
         [t_flight t_flight+dt],z0');
     t_out = [t_out;t_];
@@ -29,6 +33,7 @@ while (iter < flight_iter_max && com_height > 0)
     t_flight = t_flight+dt;
     
     com_height = [0 1 0]*com_pos(z0,p);
+    com_vert_velocity = [0 1 0]*com_vel(z0,p);
     
     iter = iter + 1;
 end

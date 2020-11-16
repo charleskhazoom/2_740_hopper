@@ -26,20 +26,30 @@ m_body = 0.186 +0.211;
 l_body = 0.04;
 l_arm = 0.1;
 l_cm_arm = 0.8*l_arm;
-l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
+l_cm_body = l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
 m_arm = 0.2; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2;
-ground_height = 0;
 
-%% Parameter vector
+ground_height = 0;
 mu = 0.8; % friction coef
-max_voltage = 20; % volts
+
+max_voltage = 12; % volts
 motor_kt = 0.18;
 motor_R = 2;
+tau_max = (max_voltage)*motor_kt/motor_R*N;
+
+m_offset_x = 0.4;
+m_offset_y = 0.16;
+l_boom = 8*0.0254;
+h_boom = 0.3; % to be adjusted for ground.
+hob = 91.3/1000;
+k = 0.2877/1.35; % Nm/rad
+
+%% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
-    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g motor_kt motor_R]';        % parameters
-auxdata.p = p;
+    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+    m_offset_x m_offset_y l_boom h_boom hob k motor_kt motor_R]';        % parameters
 
 %% Initial conditions
 desired_hip_pos0 = [0.014;0.15];%[0.03;0.06];
@@ -49,16 +59,16 @@ init_arm_angle = 0;
 z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 
 %% State/Control Bounds
-q_min = [-0.2 -0.5 -pi -pi -pi -2 -2 -16 -16 -16]';
-q_max = [0.35 0.5  pi  pi  pi  8  8  16  16  16]';
+q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -1.5*pi -2 -2 -16 -16 -16]';
+q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  1.5*pi  8  8  16  16  16]';
 
-u_min = -[35 35 35]';
-u_max = [35 35 35]';
+u_min = -[tau_max tau_max tau_max]';
+u_max = [tau_max tau_max tau_max]';
 
 %% Integration Settings
 res = 5;
 dt = 0.01 / res;
-N_steps = res * 22; % for now, let's fix stance time
+N_steps = res * 28; % for now, let's fix stance time
 
 %% Optimization Variables
 % create optimization object
@@ -100,7 +110,7 @@ for k = 1:N_steps-1
     
     opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
     opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
-
+    
     opti.subject_to(fk(1) <= mu*fk(2)); % friction
     opti.subject_to(fk(1) >= -mu*fk(2));
     
@@ -120,7 +130,7 @@ for k = 1:N_steps-1
     opti.subject_to(qk <= q_max(1:5));
     opti.subject_to(qk >= q_min(1:5));
     opti.subject_to(qdk <= q_max(6:10));
-    opti.subject_to(qdk >= q_min(1:5));
+    opti.subject_to(qdk >= q_min(6:10));
     
     % Control Bounds
     opti.subject_to(tauk <= u_max);
