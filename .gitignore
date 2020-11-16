@@ -32,7 +32,14 @@
 *.app
 *.m~
 dynamics_gen/*
+casadi/*
 interp_sol_9.8.mat
 intersting_sol.mat
 jumpOptIPOPTinfo.txt
+*.txt
 
+first_trajectory.mat
+dummy_traj_name.mat
+solution_without_path_cstraints.mat
+some_traj_for_se_hwan.mat
+dynamics_gen_boom/*

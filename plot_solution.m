@@ -135,8 +135,8 @@ title('COM velocity')
 figure(fignb);
 fignb=fignb+1;
 
-kt = p(27); 
-R  = p(28);
+kt = p(33); 
+R  = p(34);
 N  = p(13);
 V_out(1,:) = (u_out(1,:)/N)*R/kt + kt*z_out(8,:)*N;
 V_out(2,:) = (u_out(2,:)/N)*R/kt + kt*z_out(9,:)*N;

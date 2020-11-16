@@ -33,6 +33,11 @@ output(1).path(:,3) = (input.phase(1).control(:,1)/N)*R/kt + kt*input.phase(1).s
 output(1).path(:,4) = (input.phase(1).control(:,2)/N)*R/kt + kt*input.phase(1).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
 output(1).path(:,5) = (input.phase(1).control(:,3)/N)*R/kt + kt*input.phase(1).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
 
+output(1).integrand(:,1) = input.phase(1).state(:,10).*input.phase(1).state(:,10);
+output(1).integrand(:,2) = input.phase(1).control(:,1).*input.phase(1).control(:,1)+...
+                            input.phase(1).control(:,2).*input.phase(1).control(:,2)+...
+                            input.phase(1).control(:,3).*input.phase(1).control(:,3);
+
 %% Phase 2 - Flight
 
 dz2 = 0*input.phase(2).state;
@@ -57,4 +62,8 @@ output(2).path(:,1) = (input.phase(2).control(:,1)/N)*R/kt + kt*input.phase(2).s
 output(2).path(:,2) = (input.phase(2).control(:,2)/N)*R/kt + kt*input.phase(2).state(:,9)*N; % voltage = (R/kt*motor_torque + kt*motor_speed)
 output(2).path(:,3) = (input.phase(2).control(:,3)/N)*R/kt + kt*input.phase(2).state(:,10)*N;% voltage = (R/kt*motor_torque + kt*motor_speed)
 
+output(2).integrand(:,1) = input.phase(2).state(:,10).*input.phase(2).state(:,10);
+output(2).integrand(:,2) = input.phase(2).control(:,1).*input.phase(2).control(:,1)+...
+                            input.phase(2).control(:,2).*input.phase(2).control(:,2)+...
+                            input.phase(2).control(:,3).*input.phase(2).control(:,3);
 

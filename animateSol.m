@@ -15,9 +15,9 @@ function animateSol(tspan, x,p)
     axis([-.2 0.7 -.01 .5]);
 
     %Step through and update animation
-    for i = 1:length(tspan)
+    for i = 1:3:length(tspan)
         % skip frame.
-        if mod(i,1)
+        if mod(i,10)
             continue;
         end
         t = tspan(i);
@@ -55,6 +55,6 @@ function animateSol(tspan, x,p)
         set(h_CE,'XData',[rC(1) rE(1)]);
         set(h_CE,'YData',[rC(2) rE(2)]);
 
-        pause(.09)
+        pause(.0005)
     end
 end
