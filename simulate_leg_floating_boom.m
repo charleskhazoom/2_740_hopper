@@ -43,7 +43,7 @@ close all
  m_offset_x = 0.4;
  m_offset_y = 0.16;
  l_boom = 8*0.0254;
- h_boom = 0.2281;%0.3; % to be adjusted for ground.
+ h_boom = 0.1921;%0.2281;%0.3; % to be adjusted for ground.
  hob = 91.3/1000;
  k = 0.2877/1; % Nm/rad
     %% Parameter vector
@@ -133,7 +133,7 @@ fignb=1;
     
     %% save trajectoryname
     name = 'some_traj_for_se_hwan'
-    dt_traj = 0.001;
+    dt_traj = 1/100;
     save_traj(tout,z_out,u_out,name,dt_traj)
 end
 
