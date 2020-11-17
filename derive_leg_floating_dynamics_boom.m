@@ -84,7 +84,7 @@ T3 = (1/2)*m3 * dot(dr_m3,dr_m3) + (1/2) * I3 * omega3^2;
 T4 = (1/2)*m4 * dot(dr_m4,dr_m4) + (1/2) * I4 * omega4^2;
 
 % T_body = (1/2)*m_body * dot(dr_body_cm,dr_body_cm); 
-T_body   = (1/2)*(m_body+m_offset_x) * dot(dr_body_cm(1),dr_body_cm(1)) +... 
+T_body = (1/2)*(m_body+m_offset_x) * dot(dr_body_cm(1),dr_body_cm(1)) +... 
     (1/2)*(m_body+m_offset_y) * dot(dr_body_cm(2),dr_body_cm(2)); % decouple boom x,y translational kinetic energy to account for boom.
 
 T_arm = (1/2)*m_arm * dot(dr_arm_cm,dr_arm_cm) + (1/2) * I_arm * dth3^2;
@@ -162,11 +162,11 @@ J  = J(1:2,1:5);
 dJ = dJ(1:2,1:5);
 
 % com position
-com_pos = (r_m1*m1+r_m2*m2+r_m3*m3+r_m4*m4+r_arm_cm*m_arm+r_body_cm*m_body)/...
-    (m1+m2+m3+m4+m_arm+m_body);
+com_pos = (r_m1*m1+r_m2*m2+r_m3*m3+r_m4*m4+r_arm_cm*m_arm+r_body_cm*(m_body + m_offset_y))/...
+    (m1+m2+m3+m4+m_arm+m_body+m_offset_y);
 
-com_vel = (dr_m1*m1 + dr_m2*m2 + dr_m3*m3 + dr_m4*m4 + dr_arm_cm*m_arm+dr_body_cm*m_body)/...
-    (m1+m2+m3+m4+m_arm+m_body);
+com_vel = (dr_m1*m1 + dr_m2*m2 + dr_m3*m3 + dr_m4*m4 + dr_arm_cm*m_arm+dr_body_cm*(m_body+m_offset_y))/...
+    (m1+m2+m3+m4+m_arm+m_body+m_offset_y);
 
 %for flight phase, use floating_base functions created here with F = [0;0];
 if write_dynamics_files==true

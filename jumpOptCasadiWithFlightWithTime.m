@@ -29,9 +29,9 @@ g = 9.81;
 
 % parameters to be adjusted according to design
 m_body = 0.186 +0.211;
-l_body = 0.04;
-l_arm = 0.1;
-l_cm_arm = 0.8*l_arm;
+l_body = 68.1/1000;
+l_arm = 5*0.0254;
+l_cm_arm = 1*l_arm;
 l_cm_body = l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
 m_arm = 0.2; % 100 grams ?
@@ -40,7 +40,7 @@ I_arm = m_arm*l_cm_arm^2;
 ground_height = 0;
 mu = 1.2; % friction coef
 
-max_voltage = 15; % volts
+max_voltage = 12; % volts
 motor_kt = 0.18;
 motor_R = 2;
 tau_max = (max_voltage)*motor_kt/motor_R*N;
