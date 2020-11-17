@@ -185,6 +185,7 @@ if write_dynamics_files==true
     matlabFunction(keypoints,'file',[path_sym_dynamics,'keypoints_', name],'vars',{z p});
     matlabFunction(F_boom,'file',[path_sym_dynamics,'Force_boom'],'vars',{z p});
     matlabFunction(th_boom,'file',[path_sym_dynamics,'angle_boom'],'vars',{z p});
+    matlabFunction(dr_arm_tip,'file',[path_sym_dynamics,'arm_tim_vel'],'vars',{z p});
 end
 
 
