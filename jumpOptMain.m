@@ -23,13 +23,13 @@ l_arm = 0.1;
 l_cm_arm = 0.8*l_arm;
 l_cm_body=l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
-m_arm = 0.5; % 100 grams ?
+m_arm = 0.2; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2;
 ground_height = 0;
 
 %% Parameter vector
 mu = 0.9; % friction coef
-max_voltage = 20; % volts
+max_voltage = 40; % volts
 motor_kt = 0.18;
 motor_R = 2;
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -48,11 +48,11 @@ z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 bounds.phase(1).initialtime.lower = 0;
 bounds.phase(1).initialtime.upper = 0;
 
-bounds.phase(1).finaltime.lower = 0.2;
-bounds.phase(1).finaltime.upper = 0.3;
+bounds.phase(1).finaltime.lower = 0.22;
+bounds.phase(1).finaltime.upper = 0.22;
 
-bounds.phase(2).duration.lower = 0.2;
-bounds.phase(2).duration.upper = 0.35;
+bounds.phase(2).duration.lower = 0.13;
+bounds.phase(2).duration.upper = 0.13;
 
 bounds.phase(2).initialtime.lower = bounds.phase(1).finaltime.lower;
 bounds.phase(2).initialtime.upper = bounds.phase(1).finaltime.upper;
@@ -64,7 +64,7 @@ bounds.phase(2).finaltime.upper = bounds.phase(2).initialtime.upper+bounds.phase
 bounds.phase(1).initialstate.lower = z0';
 bounds.phase(1).initialstate.upper = z0';
 
-bounds.phase(1).state.lower = [-0.08 -0.1 -pi -pi -pi -2 -2 -16 -16 -16];
+bounds.phase(1).state.lower = [-0.2 -0.5 -pi -pi -pi -2 -2 -16 -16 -16];
 bounds.phase(1).state.upper = [0.35   0.5  pi  pi  pi  8  8  16  16  16];
 
 bounds.phase(1).finalstate.lower = bounds.phase(1).state.lower;
@@ -83,8 +83,8 @@ bounds.phase(2).finalstate.upper = bounds.phase(1).state.upper;
 bounds.phase(1).control.lower = -[35 35 35];
 bounds.phase(1).control.upper = [35 35 35];
 
-bounds.phase(2).control.lower = -[2 2 2];
-bounds.phase(2).control.upper = [2 2 2];
+bounds.phase(2).control.lower = -[35 35 35];
+bounds.phase(2).control.upper = [35 35 35];
 
 % friction bounds for force
 bounds.phase(1).path.lower(1) = -mu;
@@ -117,17 +117,25 @@ bounds.phase(2).integral.lower = [0 0];
 bounds.phase(2).integral.upper = [200 200];
 
 %% Initial Guess
-[t_guess, z_guess, u_guess] = get_initial_guess(bounds.phase(1).finaltime.upper+bounds.phase(2).duration.upper,z0,p);
-guess.phase(1).time = t_guess{1};
-guess.phase(1).state = z_guess{1};
-guess.phase(1).control = u_guess{1}';
-%guess.phase(1).integral = [2 2 2 2 2 30];
-guess.phase(1).integral = [2 2];
+guess_solution = load('guess_solution.mat','solution');
+for i = 1:2
+    guess.phase(i).time = guess_solution.solution.phase(i).time;
+    guess.phase(i).state = guess_solution.solution.phase(i).state;
+    guess.phase(i).control = guess_solution.solution.phase(i).control;
+    guess.phase(i).integral = guess_solution.solution.phase(i).integral;
+end
 
-guess.phase(2).time = t_guess{2};
-guess.phase(2).state = z_guess{2};
-guess.phase(2).control = u_guess{2}';
-guess.phase(2).integral = [2 2];
+% [t_guess, z_guess, u_guess] = get_initial_guess(bounds.phase(1).finaltime.upper+bounds.phase(2).duration.upper,z0,p);
+% guess.phase(1).time = t_guess{1};
+% guess.phase(1).state = z_guess{1};
+% guess.phase(1).control = u_guess{1}';
+% %guess.phase(1).integral = [2 2 2 2 2 30];
+% guess.phase(1).integral = [2 2];
+% 
+% guess.phase(2).time = t_guess{2};
+% guess.phase(2).state = z_guess{2};
+% guess.phase(2).control = u_guess{2}';
+% guess.phase(2).integral = [2 2];
 
 % guess.phase(1).time = [0;bounds.phase(1).finaltime.upper];
 % guess.phase(1).state = [z0';z0'];
@@ -159,7 +167,7 @@ setup.bounds = bounds;
 setup.guess = guess;
 setup.mesh = mesh;
 setup.nlp.solver = 'ipopt';
-setup.nlp.ipoptoptions.maxiterations = 5550;
+setup.nlp.ipoptoptions.maxiterations = 98550;
 
 setup.method = 'RPM-Differentiation';
 %setup.scales.method = 'automatic-guessUpdate';
@@ -169,6 +177,8 @@ setup.scales.method = 'automatic-bounds';
 output = gpops2(setup);
 solution = output.result.solution;
 interp_sol = output.result.interpsolution;
+
+save('guess_solution','solution');
 
 %% Plot
 plot_solution2(interp_sol,bounds,p);
