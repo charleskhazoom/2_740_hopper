@@ -42,9 +42,9 @@ tau_max = (max_voltage)*motor_kt/motor_R*N;
 m_offset_x = 0.4;
 m_offset_y = 0.16;
 l_boom = 8*0.0254;
-h_boom = 0.3; % to be adjusted for ground.
+h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-k = 0.2877/1.35; % Nm/rad
+k = 0.2877; % Nm/rad
 
 %% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
