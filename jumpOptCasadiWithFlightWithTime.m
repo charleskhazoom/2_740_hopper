@@ -40,7 +40,7 @@ I_arm = m_arm*l_cm_arm^2;
 ground_height = 0;
 mu = 1.2; % friction coef
 
-max_voltage = 20; % volts
+max_voltage = 15; % volts
 motor_kt = 0.18;
 motor_R = 2;
 tau_max = (max_voltage)*motor_kt/motor_R*N;
@@ -79,7 +79,7 @@ q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3  15  15  15]';
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-t_stance_vec = linspace(8,20,13);
+t_stance_vec = linspace(18,20,1);
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
 for j = 1:length(t_stance_vec)
@@ -173,6 +173,10 @@ for j = 1:length(t_stance_vec)
         opti.subject_to(tauk <= u_max);
         opti.subject_to(tauk >= u_min);
         
+        % Foot above ground
+        foot_height_k = position_foot([qk;qdk],p);
+        opti.subject_to(foot_height_k(2) >= 0);
+        
         % Regularization
         if k == 1
             cost = (0.1*qdk(5)*qdk(5) + 0.1*tauk(3)*tauk(3))*dt;
@@ -190,6 +194,11 @@ for j = 1:length(t_stance_vec)
     
     com_fin = com_pos([qN;qdN],p);
     dcom_fin = com_vel([qN;qdN],p);
+    
+    % Takeoff conditions
+    opti.subject_to(com_fin(1) >= 0.0)
+    opti.subject_to(dcom_fin(1) >= 0.0)
+    opti.subject_to(dcom_fin(2) >= 0.0)
     
     switch obj_func
         case 1
@@ -226,6 +235,11 @@ for j = 1:length(t_stance_vec)
     boom_fs{j} = sol.value(boom_force); % boom force
     
     landing_pos(j) = -sol.value(cost);
+    takeoff_pos_x(j) = sol.value(com_fin(1));
+    takeoff_pos_y(j) = sol.value(com_fin(2));
+    takeoff_vel_x(j) = sol.value(dcom_fin(1));
+    takeoff_vel_y(j) = sol.value(dcom_fin(2));
+    takeoff_vel_ratio(j) = sol.value(dcom_fin(1)/dcom_fin(2));
     stance_time(j) = t_stances{j}(end);
     
 end
@@ -234,9 +248,30 @@ end
 [~,indx] = max(landing_pos);
 
 figure()
+subplot(3,2,1)
 plot(stance_time,landing_pos,'ro')
 xlabel('Stance Time (s)')
 ylabel('Horizontal Jump Distance');
+subplot(3,2,2)
+plot(stance_time,takeoff_vel_ratio,'ro')
+xlabel('Stance Time (s)')
+ylabel('Takeoff Velocity Ratio');
+subplot(3,2,3)
+plot(stance_time,takeoff_pos_x,'ro')
+xlabel('Stance Time (s)')
+ylabel('X Position at Takeoff (m)');
+subplot(3,2,4)
+plot(stance_time,takeoff_pos_y,'ro')
+xlabel('Stance Time (s)')
+ylabel('Y Position at Takeoff (m)');
+subplot(3,2,5)
+plot(stance_time,takeoff_vel_x,'ro')
+xlabel('Stance Time (s)')
+ylabel('X Velocity at Takeoff (m/s)');
+subplot(3,2,6)
+plot(stance_time,takeoff_vel_y,'ro')
+xlabel('Stance Time (s)')
+ylabel('Y Velocity at Takeoff (m)');
 
 %% Simulate & plot
 [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx},z0,taus{indx},p);

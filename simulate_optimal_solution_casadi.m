@@ -20,7 +20,7 @@ t_flight = time(end);
 com_height = 1;
 foot_height = 1;
 max_flight_dur = 0.5;
-while (t_flight < time(end)+max_flight_dur && com_height > 0 && foot_height > 0)
+while (t_flight < time(end)+max_flight_dur && com_height > 0 && foot_height >= 0)
     [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,p),...
         [t_flight t_flight+dt],z0');
     t_out = [t_out;t_];
