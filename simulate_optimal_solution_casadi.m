@@ -17,8 +17,10 @@ z_stance = z_out;
 
 %% Simulate Flight
 t_flight = time(end);
+zref_flight = [0;0;z0(3);130*pi/180;0;0;0;0;0;0];
 while (t_flight < time(end)+0.3)
-    [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,[0;0;0],p),...
+    tau = control_law_flight([],z0,p,zref_flight);
+    [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,tau,p),...
         [t_flight t_flight+dt],z0');
     t_out = [t_out;t_];
     z_out = [z_out;z_];
@@ -67,5 +69,27 @@ dz = 0*z; % initialize dz
 % Form dz
 dz(1:5) = z(6:10);
 dz(6:10) = qdd;
+
+end
+
+function tau = control_law_flight(t, z, p,z0)
+ 
+    %tau = [0.5;0;0.5];
+%     tau = [-0.5;-0.5;1];
+    
+    kp = 5;
+    kd = 0.3;
+    q_ref = z0(3:5);
+    q = z(3:5);
+    
+    qd = z(8:10);
+    
+    qd_ref = [0;0;0];
+
+    tau = kp*(q_ref-q) + kd*(qd_ref - qd);
+%     tau = saturate_torque(z,tau,p);
+
+    
+%     tau = [0;0;0];
 
 end

@@ -13,7 +13,7 @@ use_boom = 1;
 %% Add Libraries
 % add casadi library
 addpath(genpath('casadi'));
-addpath(genpath('dynamics_gen'));
+addpath(genpath('dynamics_gen_boom'));
 
 %% Set Auxillary Data
 m1 =.0393 + .2; % 0.2 is motor mass
@@ -32,8 +32,8 @@ g = 9.81;
 
 % parameters to be adjusted according to design
 m_body = 0.186 +0.211;
-l_body = 0.04;
-l_arm = 0.1;
+l_body = 68.1/1000;
+l_arm = 5*0.0254;
 l_cm_arm = 0.8*l_arm;
 l_cm_body = l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
@@ -43,7 +43,7 @@ I_arm = m_arm*l_cm_arm^2;
 ground_height = 0;
 mu = 0.8; % friction coef
 
-max_voltage = 15; % volts
+max_voltage = 12; % volts
 motor_kt = 0.18;
 motor_R = 2;
 tau_max = (max_voltage)*motor_kt/motor_R*N;
@@ -51,9 +51,9 @@ tau_max = (max_voltage)*motor_kt/motor_R*N;
 m_offset_x = use_boom * 0.4;
 m_offset_y = use_boom * 0.16;
 l_boom = 8*0.0254;
-h_boom = 0.3; % to be adjusted for ground.
+h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-k = use_boom * 0.2877/1.35; % Nm/rad
+k = use_boom * 0.2877/1; % Nm/rad
 
 %% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -68,18 +68,18 @@ init_arm_angle = pi;
 z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 
 %% State/Control Bounds
-q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -2*pi -2 -2 -16 -16 -16]';
-q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  8  8  16  16  16]';
+q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -pi -2 -2 -5 -5 -16]';
+q_max = [0.35 0.5  deg2rad(75)  deg2rad(142) pi  8  8  5  5  16]';
 
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-t_stance_vec = linspace(6,8,1);
+t_stance_vec = linspace(6,10,1);
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
 for j = 1:length(t_stance_vec)
     %% Integration Settings
-    res = 5;
+    res = 10;
     dt = 0.01 / res;
     N_steps = floor(res * t_stance_vec(j)); % for now, let's fix stance time
     
@@ -162,7 +162,7 @@ for j = 1:length(t_stance_vec)
         if k == 1
             cost = (0.1*qdk(5)*qdk(5) + 0.1*tauk(3)*tauk(3))*dt;
         else
-            cost = cost + (0.01*qdk(5)*qdk(5) + 0.01*tauk(3)*tauk(3))*dt;
+            cost = cost + (0.001*qdk(5)*qdk(5) + 0.001*tauk(3)*tauk(3))*dt;
         end
         
     end
@@ -176,7 +176,11 @@ for j = 1:length(t_stance_vec)
     
     switch obj_func
         case 1
-            g_with_boom = 0.5*g;
+            if use_boom
+                g_with_boom = 0.5*g;
+            else
+                g_with_boom = g;
+            end
             vz = dcom_fin(2);
             z = com_fin(2);
             vx = dcom_fin(1);
@@ -197,6 +201,19 @@ for j = 1:length(t_stance_vec)
             cost = -(x_land + 0.5*qdN(2)); % horizontal landing position + vertical launch velocity
         case 4
             cost = cost + -(qdN(2));
+        case 5 
+            if use_boom
+                g_with_boom = 0.5*g;
+            else
+                g_with_boom = g;
+            end
+            vz = dcom_fin(2);
+            z = com_fin(2);
+            vx = dcom_fin(1);
+            x = com_fin(1);
+            t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
+            x_land = x + vx*t_flight;
+            cost = cost + -x_land; % horizontal landing position
     end
     
     opti.minimize(cost);
@@ -288,6 +305,43 @@ plot(ts{indx},qds{indx}(5,:),'k--')
 xlabel('Time (s)')
 ylabel('Joint Velocity (rad/s)')
 legend('\theta_1','\theta_2','\theta_3')
+
+figure;
+subplot(2,1,1)
+
+plot(ts{indx},taus{indx}(1,:),'m--');hold on;
+plot(ts{indx},taus{indx}(2,:),'g--')
+plot(ts{indx},taus{indx}(3,:),'k--')
+xlabel('Time (s)')
+ylabel('Joint Torques(Nm)')
+legend('\tau_1','\tau_2','\tau_3')
+
+subplot(212)
+
+plot(ts{indx},fs{indx}(1,:),'m--');hold on;
+plot(ts{indx},fs{indx}(2,:),'g--')
+xlabel('Time (s)')
+ylabel('Ground force (Nm)')
+legend('F_x','F_y')
+
+figure;
+
+force_ratios = fs{indx}(1,:)./fs{indx}(2,:);
+volts1 = (taus{indx}(1,:)/N)*motor_R/motor_kt + motor_kt*qds{indx}(3,:)*N;
+volts2 = (taus{indx}(2,:)/N)*motor_R/motor_kt + motor_kt*qds{indx}(4,:)*N;
+volts3 = (taus{indx}(3,:)/N)*motor_R/motor_kt + motor_kt*qds{indx}(5,:)*N;
+
+ax(1) = subplot(211);
+
+plot(ts{indx},force_ratios);
+
+ax(2) = subplot(212);
+plot(ts{indx},volts1);hold on;
+plot(ts{indx},volts2);
+plot(ts{indx},volts3);
+legend('volts 1','volts 2','volts 3')
+linkaxes(ax,'x');
+%%
 
 figure()
 animateSol(tsim,zsim',p);
