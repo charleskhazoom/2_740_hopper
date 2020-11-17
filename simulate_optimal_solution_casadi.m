@@ -16,30 +16,14 @@ t_stance = t_out;
 z_stance = z_out;
 
 %% Simulate Flight
-flight_iter_max = 500;
-iter = 0;
-com_height = 1;
-com_vert_velocity = -10;
-com_vert_velocity_prev = 10;
 t_flight = time(end);
-while (iter < flight_iter_max)% && com_height > 0 && com_vert_velocity < com_vert_velocity_prev)
-    com_vert_velocity_prev = [0 1 0]*com_vel(z0,p);
-    
+while (t_flight < time(end)+0.3)
     [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,[0;0;0],p),...
         [t_flight t_flight+dt],z0');
     t_out = [t_out;t_];
     z_out = [z_out;z_];
     z0 = z_out(end,:)';
     t_flight = t_flight+dt;
-    
-    com_height = [0 1 0]*com_pos(z0,p);
-    com_vert_velocity = [0 1 0]*com_vel(z0,p);
-    
-    iter = iter + 1;
-end
-
-if iter >= flight_iter_max
-    disp('Max sim iterations reached')
 end
 
 end

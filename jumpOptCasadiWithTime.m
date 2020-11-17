@@ -8,7 +8,7 @@ clear
 % 4 - vertical velocity
 
 obj_func = 1;
-
+use_boom = 1;
 
 %% Add Libraries
 % add casadi library
@@ -43,17 +43,17 @@ I_arm = m_arm*l_cm_arm^2;
 ground_height = 0;
 mu = 0.8; % friction coef
 
-max_voltage = 12; % volts
+max_voltage = 15; % volts
 motor_kt = 0.18;
 motor_R = 2;
 tau_max = (max_voltage)*motor_kt/motor_R*N;
 
-m_offset_x = 0.4;
-m_offset_y = 0.16;
+m_offset_x = use_boom * 0.4;
+m_offset_y = use_boom * 0.16;
 l_boom = 8*0.0254;
 h_boom = 0.3; % to be adjusted for ground.
 hob = 91.3/1000;
-k = 0.2877;%/1.35; % Nm/rad
+k = use_boom * 0.2877/1.35; % Nm/rad
 
 %% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -64,17 +64,17 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
 desired_hip_pos0 = [0.;0.1];%[0.03;0.06];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
 init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
-init_arm_angle = 0;
+init_arm_angle = pi;
 z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 
 %% State/Control Bounds
-q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -1.5*pi -2 -2 -16 -16 -16]';
-q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  1.5*pi  8  8  16  16  16]';
+q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -2*pi -2 -2 -16 -16 -16]';
+q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  8  8  16  16  16]';
 
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-t_stance_vec = linspace(10,16,2);
+t_stance_vec = linspace(6,8,1);
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
 for j = 1:length(t_stance_vec)
@@ -104,7 +104,7 @@ for j = 1:length(t_stance_vec)
     
     for k = 1:N_steps
         
-        disp([num2str(k),' of ',num2str(N_steps-1)]);
+        disp([num2str(k),' of ',num2str(N_steps)]);
         
         % This iteration
         qk = q(:,k);
@@ -141,6 +141,13 @@ for j = 1:length(t_stance_vec)
         opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N <= max_voltage);
         opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N >= -max_voltage);
         
+        % Boom angle constraint
+        if use_boom
+            boom_angle_k = angle_boom([qk;qdk],p);
+            opti.subject_to( boom_angle_k <= deg2rad(60) );
+            opti.subject_to( boom_angle_k >= -deg2rad(60) );
+        end
+        
         % State Bounds
         opti.subject_to(qk <= q_max(1:5));
         opti.subject_to(qk >= q_min(1:5));
@@ -150,6 +157,13 @@ for j = 1:length(t_stance_vec)
         % Control Bounds
         opti.subject_to(tauk <= u_max);
         opti.subject_to(tauk >= u_min);
+        
+        % Regularization
+        if k == 1
+            cost = (0.1*qdk(5)*qdk(5) + 0.1*tauk(3)*tauk(3))*dt;
+        else
+            cost = cost + (0.01*qdk(5)*qdk(5) + 0.01*tauk(3)*tauk(3))*dt;
+        end
         
     end
     
@@ -169,9 +183,9 @@ for j = 1:length(t_stance_vec)
             x = com_fin(1);
             t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
             x_land = x + vx*t_flight;
-            cost = -x_land; % horizontal landing position
+            cost = cost + -x_land; % horizontal landing position
         case 2
-            cost = -(qN(1) + 20*qdN(1) + qN(2) + 20*qdN(2));
+            cost = cost + -(qN(1) + 20*qdN(1) + qN(2) + 20*qdN(2));
         case 3
             g_with_boom = 0.5*g;
             vz = dcom_fin(2);
@@ -182,9 +196,8 @@ for j = 1:length(t_stance_vec)
             x_land = x + vx*t_flight;
             cost = -(x_land + 0.5*qdN(2)); % horizontal landing position + vertical launch velocity
         case 4
-            cost = -(qdN(2));
+            cost = cost + -(qdN(2));
     end
-    
     
     opti.minimize(cost);
     
@@ -208,6 +221,8 @@ for j = 1:length(t_stance_vec)
     stance_time(j) = ts{j}(end);
     
 end
+
+%% Compare differnt stance times
 [~,indx] = max(landing_pos);
 
 figure()
@@ -215,7 +230,7 @@ plot(stance_time,landing_pos,'ro')
 xlabel('Stance Time (s)')
 ylabel('Horizontal Jump Distance');
 
-%% Simulate, Plot, Compare
+%% Simulate & plot
 [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(ts{indx},z0,taus{indx},p);
 
 % Turn these plots into a function
@@ -240,6 +255,13 @@ plot(ts{indx},qds{indx}(2,:),'b--')
 xlabel('Time (s)')
 ylabel('Body Velocity (m/s)')
 legend('x','y')
+
+figure()
+plot(zsim(:,1)',zsim(:,2)','ro-')
+hold on
+plot(qs{indx}(1,:),qs{indx}(2,:),'bo-')
+xlabel('Body Position - x (m)')
+ylabel('Body Position - y (m)')
 
 % Compare joint position/velocity
 figure()
