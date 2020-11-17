@@ -17,15 +17,28 @@ z_stance = z_out;
 
 %% Simulate Flight
 t_flight = time(end);
-zref_flight = [0;0;z0(3);130*pi/180;0;0;0;0;0;0];
-while (t_flight < time(end)+0.3)
-    tau = control_law_flight([],z0,p,zref_flight);
-    [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,tau,p),...
+% <<<<<<< HEAD
+% zref_flight = [0;0;z0(3);130*pi/180;0;0;0;0;0;0];
+% while (t_flight < time(end)+0.3)
+%     tau = control_law_flight([],z0,p,zref_flight);
+%     [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,tau,p),...
+% =======
+com_height = 1;
+foot_height = 1;
+max_flight_dur = 0.5;
+while (t_flight < time(end)+max_flight_dur && com_height > 0 && foot_height >= 0)
+    [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,p),...
         [t_flight t_flight+dt],z0');
     t_out = [t_out;t_];
     z_out = [z_out;z_];
     z0 = z_out(end,:)';
     t_flight = t_flight+dt;
+    com_height = [0 1 0] * com_pos(z0,p);
+    foot_height = [0 1] * position_foot(z0,p);
+end
+
+if t_flight >= time(end)+max_flight_dur
+    disp('Max flight time reached without touching ground')
 end
 
 end
@@ -53,7 +66,14 @@ dz(6:10) = qdd;
 end
 
 
-function dz = get_dynamics_flight(t,z,tau,p)
+function dz = get_dynamics_flight(t,z,p)
+
+% Desired joint angles
+zj_des = deg2rad([-70;130;180]);
+kp = 1.5;
+kd = 0.1;
+
+tau = kp.*(zj_des - z(3:5)) - kd.*z(8:10);
 
 % Get mass matrix
 A = A_floating(z,p);
