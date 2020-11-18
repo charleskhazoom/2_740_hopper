@@ -83,13 +83,13 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = linspace(2,25.5,1)*0.0254;
+l_arm_vec = linspace(2,25.5,11)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
 
 for aa = 1:length(l_arm_vec)
-    
+    aa
     l_arm = l_arm_vec(aa);
     l_cm_arm = 1*l_arm;
     I_arm = m_arm*l_cm_arm^2;
@@ -100,6 +100,7 @@ for aa = 1:length(l_arm_vec)
 
 
     for j = 1:length(t_stance_vec)
+        j
         %% Integration Settings
         res = 5;
         dt = 0.01 / res;
@@ -262,7 +263,7 @@ for aa = 1:length(l_arm_vec)
     end
 end
 %% Compare different stance times for a given arm length
-indx_arm = 1; % do this for a given arm length
+indx_arm = 8; % do this for a given arm length
 
 [~,indx_stance] = max(landing_pos(:,indx_arm));
 
