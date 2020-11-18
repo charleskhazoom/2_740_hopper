@@ -51,7 +51,7 @@ m_offset_y = use_boom * 0.16;
 l_boom = 8*0.0254;
 h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-boom_stiffness = use_boom * 0.2877/1.5; % Nm/rad
+boom_stiffness = use_boom * 0.2877/1.2; % Nm/rad
 boom_angle_min = -deg2rad(70);
 boom_angle_max = deg2rad(70);
 
@@ -83,7 +83,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = 5*0.0254;%linspace(2,25.5,1)*0.0254;
+l_arm_vec = linspace(2,20,10)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
@@ -103,7 +103,7 @@ for aa = 1:length(l_arm_vec)
         j
         %% Integration Settings
         res = 5;
-        dt = 0.01 / res;
+        dt = 0.01/res;
         N_stance = floor(res * t_stance_vec(j)); % for now, let's fix stance time
         N_steps = N_stance + 15;
         
@@ -362,7 +362,7 @@ figure();
 animateSol(tsim,zsim',p);
 
 %% Save traj
-save_traj(ts{indx_stance},[qs{indx_stance};qds{indx_stance}],taus{indx_stance},'matt_test_traj.mat',1/100)
+save_traj(ts{indx_stance,indx_arm},[qs{indx_stance,indx_arm};qds{indx_stance,indx_arm}],taus{indx_stance,indx_arm},'test_traj_right_kt.mat',1/100)
 
 
 %% simulate in loop
