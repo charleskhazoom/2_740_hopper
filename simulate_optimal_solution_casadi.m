@@ -16,30 +16,29 @@ t_stance = t_out;
 z_stance = z_out;
 
 %% Simulate Flight
-flight_iter_max = 500;
-iter = 0;
-com_height = 1;
-com_vert_velocity = -10;
-com_vert_velocity_prev = 10;
 t_flight = time(end);
-while (iter < flight_iter_max)% && com_height > 0 && com_vert_velocity < com_vert_velocity_prev)
-    com_vert_velocity_prev = [0 1 0]*com_vel(z0,p);
-    
-    [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,[0;0;0],p),...
+% <<<<<<< HEAD
+% zref_flight = [0;0;z0(3);130*pi/180;0;0;0;0;0;0];
+% while (t_flight < time(end)+0.3)
+%     tau = control_law_flight([],z0,p,zref_flight);
+%     [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,tau,p),...
+% =======
+com_height = 1;
+foot_height = 1;
+max_flight_dur = 0.5;
+while (t_flight < time(end)+max_flight_dur && com_height > 0 && foot_height >= 0)
+    [t_,z_] = ode45(@(t,z) get_dynamics_flight(t,z,p),...
         [t_flight t_flight+dt],z0');
     t_out = [t_out;t_];
     z_out = [z_out;z_];
     z0 = z_out(end,:)';
     t_flight = t_flight+dt;
-    
-    com_height = [0 1 0]*com_pos(z0,p);
-    com_vert_velocity = [0 1 0]*com_vel(z0,p);
-    
-    iter = iter + 1;
+    com_height = [0 1 0] * com_pos(z0,p);
+    foot_height = [0 1] * position_foot(z0,p);
 end
 
-if iter >= flight_iter_max
-    disp('Max sim iterations reached')
+if t_flight >= time(end)+max_flight_dur
+    disp('Max flight time reached without touching ground')
 end
 
 end
@@ -67,8 +66,15 @@ dz(6:10) = qdd;
 end
 
 
-function dz = get_dynamics_flight(t,z,tau,p)
+function dz = get_dynamics_flight(t,z,p)
 
+% Desired joint angles
+zj_des = deg2rad([-70;130;180]);
+kp = 5;
+kd = 0.3;
+
+tau = kp.*(zj_des - z(3:5)) - kd.*z(8:10);
+tau = saturate_torque(z,tau,p);
 % Get mass matrix
 A = A_floating(z,p);
 
@@ -83,5 +89,44 @@ dz = 0*z; % initialize dz
 % Form dz
 dz(1:5) = z(6:10);
 dz(6:10) = qdd;
+
+end
+
+function u = saturate_torque(z,u,p)
+    emax = 12;
+    kt = p(33); 
+    R  = p(34);
+    N  = p(13);
+    
+    qd = z(8:10);
+    
+    
+    tau_max = (emax - kt*qd)*kt/R;
+    tau_min = (-emax - kt*qd)*kt/R;
+    
+    u = max(min(u,tau_max),tau_min);
+    
+end
+
+
+function tau = control_law_flight(t, z, p,z0)
+ 
+    %tau = [0.5;0;0.5];
+%     tau = [-0.5;-0.5;1];
+    
+    kp = 5;
+    kd = 0.3;
+    q_ref = z0(3:5);
+    q = z(3:5);
+    
+    qd = z(8:10);
+    
+    qd_ref = [0;0;0];
+
+    tau = kp*(q_ref-q) + kd*(qd_ref - qd);
+%     tau = saturate_torque(z,tau,p);
+
+    
+%     tau = [0;0;0];
 
 end

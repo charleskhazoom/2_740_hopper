@@ -4,7 +4,7 @@ clear
 %% Add Libraries
 % add casadi library
 addpath(genpath('casadi'));
-addpath(genpath('dynamics_gen'));
+addpath(genpath('dynamics_gen_boom/'));
 
 %% Set Auxillary Data
 m1 =.0393 + .2; % 0.2 is motor mass
@@ -42,9 +42,9 @@ tau_max = (max_voltage)*motor_kt/motor_R*N;
 m_offset_x = 0.4;
 m_offset_y = 0.16;
 l_boom = 8*0.0254;
-h_boom = 0.3; % to be adjusted for ground.
+h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-k = 0.2877/1.35; % Nm/rad
+k = 0.2877; % Nm/rad
 
 %% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
@@ -55,12 +55,12 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
 desired_hip_pos0 = [0.014;0.15];%[0.03;0.06];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
 init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
-init_arm_angle = 0;
+init_arm_angle = pi;
 z0 = [desired_hip_pos0;init_leg_angle;init_arm_angle;0;0;0;0;0];
 
 %% State/Control Bounds
-q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -1.5*pi -2 -2 -16 -16 -16]';
-q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  1.5*pi  8  8  16  16  16]';
+q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -1*pi -2 -2 -16 -16 -16]';
+q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  1*pi  8  8  16  16  16]';
 
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
