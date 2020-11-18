@@ -83,7 +83,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = linspace(2,25,10)*0.0254;
+l_arm_vec = linspace(2,25.5,1)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
@@ -296,8 +296,9 @@ ylabel('Y Velocity at Takeoff (m)');
 %% Compare different arm length for a given stance time
 indx_stance = 1; % do this for a given arm length
 
+last_arm_idx = length(l_arm_vec);
+l_arm_vec =l_arm_vec(1:last_arm_idx);
 
-l_arm_vec =l_arm_vec(1:8);
 figure()
 title('')
 subplot(3,2,1)
