@@ -83,7 +83,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = linspace(5,6,2)*0.0254;
+l_arm_vec = linspace(5,25,10)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
@@ -269,29 +269,62 @@ indx_arm = 1; % do this for a given arm length
 
 figure()
 subplot(3,2,1)
-plot(stance_time,landing_pos,'ro')
+plot(stance_time,landing_pos(:,indx_arm),'ro')
 xlabel('Stance Time (s)')
 ylabel('Horizontal Jump Distance');
 subplot(3,2,2)
-plot(stance_time,takeoff_vel_ratio,'ro')
+plot(stance_time,takeoff_vel_ratio(:,indx_arm),'ro')
 xlabel('Stance Time (s)')
 ylabel('Takeoff Velocity Ratio');
 subplot(3,2,3)
-plot(stance_time,takeoff_pos_x,'ro')
+plot(stance_time,takeoff_pos_x(:,indx_arm),'ro')
 xlabel('Stance Time (s)')
 ylabel('X Position at Takeoff (m)');
 subplot(3,2,4)
-plot(stance_time,takeoff_pos_y,'ro')
+plot(stance_time,takeoff_pos_y(:,indx_arm),'ro')
 xlabel('Stance Time (s)')
 ylabel('Y Position at Takeoff (m)');
 subplot(3,2,5)
-plot(stance_time,takeoff_vel_x,'ro')
+plot(stance_time,takeoff_vel_x(:,indx_arm),'ro')
 xlabel('Stance Time (s)')
 ylabel('X Velocity at Takeoff (m/s)');
 subplot(3,2,6)
-plot(stance_time,takeoff_vel_y,'ro')
+plot(stance_time,takeoff_vel_y(:,indx_arm),'ro')
 xlabel('Stance Time (s)')
 ylabel('Y Velocity at Takeoff (m)');
+
+%% Compare different arm length for a given stance time
+indx_stance = 1; % do this for a given arm length
+
+
+
+figure()
+subplot(3,2,1)
+plot(l_arm_vec,landing_pos(indx_stance,:),'ro')
+xlabel('Stance Time (s)')
+ylabel('Horizontal Jump Distance');
+subplot(3,2,2)
+plot(stance_time,takeoff_vel_ratio(indx_stance,:),'ro')
+xlabel('Stance Time (s)')
+ylabel('Takeoff Velocity Ratio');
+subplot(3,2,3)
+plot(stance_time,takeoff_pos_x(indx_stance,:),'ro')
+xlabel('Stance Time (s)')
+ylabel('X Position at Takeoff (m)');
+subplot(3,2,4)
+plot(stance_time,takeoff_pos_y(indx_stance,:),'ro')
+xlabel('Stance Time (s)')
+ylabel('Y Position at Takeoff (m)');
+subplot(3,2,5)
+plot(stance_time,takeoff_vel_x(indx_stance,:),'ro')
+xlabel('Stance Time (s)')
+ylabel('X Velocity at Takeoff (m/s)');
+subplot(3,2,6)
+plot(stance_time,takeoff_vel_y(indx_stance,:),'ro')
+xlabel('Stance Time (s)')
+ylabel('Y Velocity at Takeoff (m)');
+
+
 
 %% Simulate & plot
 [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_stance,indx_arm},z0,taus{indx_stance,indx_arm},p);
@@ -309,7 +342,7 @@ xlabel('Body Position - x (m)')
 ylabel('Body Position - y (m)')
 
 %% Animate
-figure()
+figure();
 animateSol(tsim,zsim',p);
 
 %% Save traj
