@@ -80,10 +80,10 @@ ylabel('Motor Torque (Nm)')
 legend('\tau_1','\tau_2','\tau_3')
 
 subplot(3,1,2) % voltage
-plot(t,(tau(1,:)/N)*motor_R/motor_kt + motor_kt*qd(3,:)*N,'m-','Linewidth',lw)
+plot(t,(tau(1,:))*motor_R/motor_kt + motor_kt*qd(3,:),'m-','Linewidth',lw)
 hold on
-plot(t,(tau(2,:)/N)*motor_R/motor_kt + motor_kt*qd(4,:)*N,'g-','Linewidth',lw)
-plot(t,(tau(3,:)/N)*motor_R/motor_kt + motor_kt*qd(5,:)*N,'k-','Linewidth',lw)
+plot(t,(tau(2,:))*motor_R/motor_kt + motor_kt*qd(4,:),'g-','Linewidth',lw)
+plot(t,(tau(3,:))*motor_R/motor_kt + motor_kt*qd(5,:),'k-','Linewidth',lw)
 plot([t(1) t(end)], [vmax vmax],'k--')
 plot([t(1) t(end)], -[vmax vmax],'k--')
 xlabel('Time (s)')

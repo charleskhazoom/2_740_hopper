@@ -51,7 +51,7 @@ m_offset_y = use_boom * 0.16;
 l_boom = 8*0.0254;
 h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-boom_stiffness = use_boom * 0.2877; % Nm/rad
+boom_stiffness = use_boom * 0.2877/1.5; % Nm/rad
 boom_angle_min = -deg2rad(70);
 boom_angle_max = deg2rad(70);
 
@@ -83,7 +83,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = 18.4500*0.0254;%linspace(2,25.5,1)*0.0254;
+l_arm_vec = 5*0.0254;%linspace(2,25.5,1)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
