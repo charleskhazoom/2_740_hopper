@@ -30,12 +30,13 @@ g = 9.81;
 % parameters to be adjusted according to design
 m_body = 0.186 +0.211;
 l_body = 68.1/1000;
-l_arm = 5*0.0254;
-l_cm_arm = 1*l_arm;
+l_arm = 5*0.0254;% dummy assignation for some initializations
+l_cm_arm = 1*l_arm;% dummy assignation for some initializations
 l_cm_body = l_body/2;% assume body com is at half of the body length (makes sense since main body is composed of two motors (hip+arm) + brackets. com will be ~between both motors
 
 m_arm = 0.2; % 100 grams ?
-I_arm = m_arm*l_cm_arm^2;
+ 
+I_arm = m_arm*l_cm_arm^2; % dummy assignation for some initializations
 
 ground_height = 0;
 mu = 1.2; % friction coef
@@ -50,14 +51,14 @@ m_offset_y = use_boom * 0.16;
 l_boom = 8*0.0254;
 h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-k = use_boom * 0.2877; % Nm/rad
+boom_stiffness = use_boom * 0.2877; % Nm/rad
 boom_angle_min = -deg2rad(70);
 boom_angle_max = deg2rad(70);
 
 %% Parameter vector
 p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
     l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
-    m_offset_x m_offset_y l_boom h_boom hob k motor_kt motor_R]';        % parameters
+    m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
 
 %% Initial conditions
 desired_hip_pos0 = [0.0;0.1];%[0.03;0.06];
@@ -79,173 +80,192 @@ q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3  15  15  15]';
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-t_stance_vec = linspace(18,20,1);
+t_stance_vec = linspace(17,17,1);
+
+
+l_arm_vec = linspace(5,6,2)*0.0254;
+
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
-for j = 1:length(t_stance_vec)
-    %% Integration Settings
-    res = 5;
-    dt = 0.01 / res;
-    N_stance = floor(res * t_stance_vec(j)); % for now, let's fix stance time
-    N_steps = N_stance + 15;
-    
-    %% Optimization Variables
-    % create optimization object
-    opti = casadi.Opti();
-    % create optimization variables
-    X = opti.variable(22,N_steps);
-    
-    % names for optimization variables
-    qdd = X(1:5,:);    % joint acceleration (includes floating base coordinates)
-    qd  = X(6:10,:);   % joint velocity
-    q   = X(11:15,:);  % joint position
-    f = X(16:17,:);  % foot force
-    tau_motor = X(18:20,:); % actuator torques
-    boom_angle = X(21,:);
-    boom_force = X(22,:);
-    
-    %% Initial Constraints
-    opti.subject_to(q(:,1) == z0(1:5))
-    opti.subject_to(qd(:,1) == z0(6:10))
-    
-    %% Path Costs/Constraints
-    
-    for k = 1:N_steps
-        
-        disp([num2str(k),' of ',num2str(N_steps)]);
-        
-        % This iteration
-        qk = q(:,k);
-        qdk = qd(:,k);
-        qddk = qdd(:,k);
-        tauk = tau_motor(:,k);
-        fk = f(:,k);
-        boom_angle_k = boom_angle(:,k);
-        boom_force_k = boom_force(:,k);
-        
-        % Dynamics
-        if k <= N_stance
-            Ak = A_stance([qk;qdk],p);
-            bk = b_stance([qk;qdk],tauk,p);
-            xk_augmented = Ak\(bk);
-            opti.subject_to(qddk == xk_augmented(1:5));
-            opti.subject_to(fk == xk_augmented(6:7));
-        else
-            Ak = A_floating([qk;qdk],p);
-            bk = b_floating([qk;qdk],tauk,p,[0;0]);
-            xk = Ak\(bk);
-            opti.subject_to(qddk == xk);
-            opti.subject_to(fk == [0;0]);
-        end
-        
-        if k < N_steps
-            opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
-            opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
-        end
-        
-        % Reaction Force
-        opti.subject_to(fk(1) <= mu*fk(2)); % friction
-        opti.subject_to(fk(1) >= -mu*fk(2));
-        opti.subject_to(fk(2) >= 0); % unilateral
-        opti.subject_to(fk(2) <= 80);
-        
-        % Voltage Inequality
-        opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N <= max_voltage);
-        opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N >= -max_voltage);
-        opti.subject_to( (tauk(2)/N)*motor_R/motor_kt + motor_kt*qdk(4)*N <= max_voltage);
-        opti.subject_to( (tauk(2)/N)*motor_R/motor_kt + motor_kt*qdk(4)*N >= -max_voltage);
-        opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N <= max_voltage);
-        opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N >= -max_voltage);
-        
-        % Boom angle constraint
-        opti.subject_to(boom_angle_k == angle_boom([qk;qdk],p));
-        opti.subject_to(boom_force_k == Force_boom([qk;qdk],p));
-        opti.subject_to(boom_angle_k <= boom_angle_max);
-        opti.subject_to(boom_angle_k >= boom_angle_min);
-        
-        % State Bounds
-        opti.subject_to(qk <= q_max(1:5));
-        opti.subject_to(qk >= q_min(1:5));
-        opti.subject_to(qdk <= q_max(6:10));
-        opti.subject_to(qdk >= q_min(6:10));
-        
-        % Control Bounds
-        opti.subject_to(tauk <= u_max);
-        opti.subject_to(tauk >= u_min);
-        
-        % Foot above ground
-        foot_height_k = position_foot([qk;qdk],p);
-        opti.subject_to(foot_height_k(2) >= 0);
-        
-        % Regularization
-        if k == 1
-            cost = (0.1*qdk(5)*qdk(5) + 0.1*tauk(3)*tauk(3))*dt;
-        elseif k > N_stance
-            cost = cost + (0.01*qdk(3:5)'*qdk(3:5) + 0.01*tauk(1:3)'*tauk(1:3))*dt;
-        else
-            cost = cost + (0.01*qdk(5)*qdk(5) + 0.01*tauk(3)*tauk(3))*dt;
-        end
-        
-    end
-    
-    %% Terminal Costs/Constraints
-    qN = q(:,N_stance);
-    qdN = qd(:,N_stance);
-    
-    com_fin = com_pos([qN;qdN],p);
-    dcom_fin = com_vel([qN;qdN],p);
-    
-    % Takeoff conditions
-    opti.subject_to(com_fin(1) >= 0.0)
-    opti.subject_to(dcom_fin(1) >= 0.0)
-    opti.subject_to(dcom_fin(2) >= 0.0)
-    
-    switch obj_func
-        case 1
-            g_with_boom = 0.5*g;
-            vz = dcom_fin(2);
-            z = com_fin(2);
-            vx = dcom_fin(1);
-            x = com_fin(1);
-            t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
-            x_land = x + vx*t_flight;
-            cost = cost - x_land; % horizontal landing position
-    end
-    
-    opti.minimize(cost);
-    
-    %% Initial guess
-    opti.set_initial(q,repmat(z0(1:5),1,N_steps));
-    opti.set_initial(qd,repmat(z0(6:10),1,N_steps));
-    
-    %% Solve!
-    opti.solver('ipopt');
-    sol = opti.solve();
-    
-    %% Decompose solution
-    Xs{j} = sol.value(X); % full TO output
-    qs{j} = sol.value(q); % position vector
-    qds{j} = sol.value(qd); % velocity vector
-    qdds{j} = sol.value(qdd); % acceleration vector
-    fs{j} = sol.value(f); % front foot GRF
-    taus{j} = sol.value(tau_motor); % Joint torques
-    ts{j} = 0:dt:dt*(N_steps-1);
-    t_stances{j} = 0:dt:dt*(N_stance-1);
-    boom_angs{j} = sol.value(boom_angle); % boom angle
-    boom_fs{j} = sol.value(boom_force); % boom force
-    
-    landing_pos(j) = -sol.value(cost);
-    takeoff_pos_x(j) = sol.value(com_fin(1));
-    takeoff_pos_y(j) = sol.value(com_fin(2));
-    takeoff_vel_x(j) = sol.value(dcom_fin(1));
-    takeoff_vel_y(j) = sol.value(dcom_fin(2));
-    takeoff_vel_ratio(j) = sol.value(dcom_fin(1)/dcom_fin(2));
-    stance_time(j) = t_stances{j}(end);
-    
-end
 
-%% Compare differnt stance times
-[~,indx] = max(landing_pos);
+for aa = 1:length(l_arm_vec)
+    
+    l_arm = l_arm_vec(aa);
+    l_cm_arm = 1*l_arm;
+    I_arm = m_arm*l_cm_arm^2;
+
+    p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+    m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+
+
+    for j = 1:length(t_stance_vec)
+        %% Integration Settings
+        res = 5;
+        dt = 0.01 / res;
+        N_stance = floor(res * t_stance_vec(j)); % for now, let's fix stance time
+        N_steps = N_stance + 15;
+        
+        %% Optimization Variables
+        % create optimization object
+        opti = casadi.Opti();
+        % create optimization variables
+        X = opti.variable(22,N_steps);
+        
+        % names for optimization variables
+        qdd = X(1:5,:);    % joint acceleration (includes floating base coordinates)
+        qd  = X(6:10,:);   % joint velocity
+        q   = X(11:15,:);  % joint position
+        f = X(16:17,:);  % foot force
+        tau_motor = X(18:20,:); % actuator torques
+        boom_angle = X(21,:);
+        boom_force = X(22,:);
+        
+        %% Initial Constraints
+        opti.subject_to(q(:,1) == z0(1:5))
+        opti.subject_to(qd(:,1) == z0(6:10))
+        
+        %% Path Costs/Constraints
+        
+        for k = 1:N_steps
+            
+            disp([num2str(k),' of ',num2str(N_steps)]);
+            
+            % This iteration
+            qk = q(:,k);
+            qdk = qd(:,k);
+            qddk = qdd(:,k);
+            tauk = tau_motor(:,k);
+            fk = f(:,k);
+            boom_angle_k = boom_angle(:,k);
+            boom_force_k = boom_force(:,k);
+            
+            % Dynamics
+            if k <= N_stance
+                Ak = A_stance([qk;qdk],p);
+                bk = b_stance([qk;qdk],tauk,p);
+                xk_augmented = Ak\(bk);
+                opti.subject_to(qddk == xk_augmented(1:5));
+                opti.subject_to(fk == xk_augmented(6:7));
+            else
+                Ak = A_floating([qk;qdk],p);
+                bk = b_floating([qk;qdk],tauk,p,[0;0]);
+                xk = Ak\(bk);
+                opti.subject_to(qddk == xk);
+                opti.subject_to(fk == [0;0]);
+            end
+            
+            if k < N_steps
+                opti.subject_to(q(:,k+1) == qk + dt*qdk) % position integration
+                opti.subject_to(qd(:,k+1) == qdk + dt*qddk) % velocity integration
+            end
+            
+            % Reaction Force
+            opti.subject_to(fk(1) <= mu*fk(2)); % friction
+            opti.subject_to(fk(1) >= -mu*fk(2));
+            opti.subject_to(fk(2) >= 0); % unilateral
+            opti.subject_to(fk(2) <= 80);
+            
+            % Voltage Inequality
+            opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N <= max_voltage);
+            opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N >= -max_voltage);
+            opti.subject_to( (tauk(2)/N)*motor_R/motor_kt + motor_kt*qdk(4)*N <= max_voltage);
+            opti.subject_to( (tauk(2)/N)*motor_R/motor_kt + motor_kt*qdk(4)*N >= -max_voltage);
+            opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N <= max_voltage);
+            opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N >= -max_voltage);
+            
+            % Boom angle constraint
+            opti.subject_to(boom_angle_k == angle_boom([qk;qdk],p));
+            opti.subject_to(boom_force_k == Force_boom([qk;qdk],p));
+            opti.subject_to(boom_angle_k <= boom_angle_max);
+            opti.subject_to(boom_angle_k >= boom_angle_min);
+            
+            % State Bounds
+            opti.subject_to(qk <= q_max(1:5));
+            opti.subject_to(qk >= q_min(1:5));
+            opti.subject_to(qdk <= q_max(6:10));
+            opti.subject_to(qdk >= q_min(6:10));
+            
+            % Control Bounds
+            opti.subject_to(tauk <= u_max);
+            opti.subject_to(tauk >= u_min);
+            
+            % Foot above ground
+            foot_height_k = position_foot([qk;qdk],p);
+            opti.subject_to(foot_height_k(2) >= 0);
+            
+            % Regularization
+            if k == 1
+                cost = (0.1*qdk(5)*qdk(5) + 0.1*tauk(3)*tauk(3))*dt;
+            elseif k > N_stance
+                cost = cost + (0.01*qdk(3:5)'*qdk(3:5) + 0.01*tauk(1:3)'*tauk(1:3))*dt;
+            else
+                cost = cost + (0.01*qdk(5)*qdk(5) + 0.01*tauk(3)*tauk(3))*dt;
+            end
+            
+        end
+        
+        %% Terminal Costs/Constraints
+        qN = q(:,N_stance);
+        qdN = qd(:,N_stance);
+        
+        com_fin = com_pos([qN;qdN],p);
+        dcom_fin = com_vel([qN;qdN],p);
+        
+        % Takeoff conditions
+        opti.subject_to(com_fin(1) >= 0.0)
+        opti.subject_to(dcom_fin(1) >= 0.0)
+        opti.subject_to(dcom_fin(2) >= 0.0)
+        
+        switch obj_func
+            case 1
+                g_with_boom = 0.5*g;
+                vz = dcom_fin(2);
+                z = com_fin(2);
+                vx = dcom_fin(1);
+                x = com_fin(1);
+                t_flight = (1/g_with_boom) * (vz + sqrt(vz^2 + 2*z*g_with_boom));
+                x_land = x + vx*t_flight;
+                cost = cost - x_land; % horizontal landing position
+        end
+        
+        opti.minimize(cost);
+        
+        %% Initial guess
+        opti.set_initial(q,repmat(z0(1:5),1,N_steps));
+        opti.set_initial(qd,repmat(z0(6:10),1,N_steps));
+        
+        %% Solve!
+        opti.solver('ipopt');
+        sol = opti.solve();
+        
+        %% Decompose solution
+        Xs{j,aa} = sol.value(X); % full TO output
+        qs{j,aa} = sol.value(q); % position vector
+        qds{j,aa} = sol.value(qd); % velocity vector
+        qdds{j,aa} = sol.value(qdd); % acceleration vector
+        fs{j,aa} = sol.value(f); % front foot GRF
+        taus{j,aa} = sol.value(tau_motor); % Joint torques
+        ts{j,aa} = 0:dt:dt*(N_steps-1);
+        t_stances{j,aa} = 0:dt:dt*(N_stance-1);
+        boom_angs{j,aa} = sol.value(boom_angle); % boom angle
+        boom_fs{j,aa} = sol.value(boom_force); % boom force
+        
+        landing_pos(j,aa) = -sol.value(cost);
+        takeoff_pos_x(j,aa) = sol.value(com_fin(1));
+        takeoff_pos_y(j,aa) = sol.value(com_fin(2));
+        takeoff_vel_x(j,aa) = sol.value(dcom_fin(1));
+        takeoff_vel_y(j,aa) = sol.value(dcom_fin(2));
+        takeoff_vel_ratio(j,aa) = sol.value(dcom_fin(1)/dcom_fin(2));
+        stance_time(j,aa) = t_stances{j,aa}(end);
+        
+    end
+end
+%% Compare different stance times for a given arm length
+indx_arm = 1; % do this for a given arm length
+
+[~,indx_stance] = max(landing_pos(:,indx_arm));
+
 
 figure()
 subplot(3,2,1)
@@ -274,17 +294,17 @@ xlabel('Stance Time (s)')
 ylabel('Y Velocity at Takeoff (m)');
 
 %% Simulate & plot
-[tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx},z0,taus{indx},p);
+[tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_stance,indx_arm},z0,taus{indx_stance,indx_arm},p);
 
-plot_with_bounds(ts{indx},qs{indx},qds{indx},...
-    fs{indx},taus{indx},boom_angs{indx},boom_fs{indx},...
+plot_with_bounds(ts{indx_stance,indx_arm},qs{indx_stance,indx_arm},qds{indx_stance,indx_arm},...
+    fs{indx_stance,indx_arm},taus{indx_stance,indx_arm},boom_angs{indx_stance,indx_arm},boom_fs{indx_stance,indx_arm},...
     q_min,q_max,u_min,u_max,max_voltage,mu,...
     N,motor_R,motor_kt,boom_angle_min,boom_angle_max);
 
-figure()
+figure();
 plot(zsim(:,1)',zsim(:,2)','ro-')
 hold on
-plot(qs{indx}(1,:),qs{indx}(2,:),'bo-')
+plot(qs{indx_stance}(1,:),qs{indx_stance}(2,:),'bo-')
 xlabel('Body Position - x (m)')
 ylabel('Body Position - y (m)')
 
@@ -293,7 +313,7 @@ figure()
 animateSol(tsim,zsim',p);
 
 %% Save traj
-save_traj(ts{indx},[qs{indx};qds{indx}],taus{indx},'matt_test_traj.mat',1/100)
+save_traj(ts{indx_stance},[qs{indx_stance};qds{indx_stance}],taus{indx_stance},'matt_test_traj.mat',1/100)
 
 
 
