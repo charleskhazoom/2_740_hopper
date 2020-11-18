@@ -70,8 +70,8 @@ function dz = get_dynamics_flight(t,z,p)
 
 % Desired joint angles
 zj_des = deg2rad([-70;130;180]);
-kp = 1.5;
-kd = 0.1;
+kp = 5;
+kd = 0.3;
 
 tau = kp.*(zj_des - z(3:5)) - kd.*z(8:10);
 
