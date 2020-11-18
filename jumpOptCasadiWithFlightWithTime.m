@@ -83,7 +83,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = linspace(5,25,10)*0.0254;
+l_arm_vec = linspace(2,25,10)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
@@ -297,31 +297,32 @@ ylabel('Y Velocity at Takeoff (m)');
 indx_stance = 1; % do this for a given arm length
 
 
-
+l_arm_vec =l_arm_vec(1:8);
 figure()
+title('')
 subplot(3,2,1)
 plot(l_arm_vec,landing_pos(indx_stance,:),'ro')
-xlabel('Stance Time (s)')
+xlabel('Arm Length (m)')
 ylabel('Horizontal Jump Distance');
 subplot(3,2,2)
-plot(stance_time,takeoff_vel_ratio(indx_stance,:),'ro')
-xlabel('Stance Time (s)')
+plot(l_arm_vec,takeoff_vel_ratio(indx_stance,:),'ro')
+xlabel('Arm Length (m)')
 ylabel('Takeoff Velocity Ratio');
 subplot(3,2,3)
-plot(stance_time,takeoff_pos_x(indx_stance,:),'ro')
-xlabel('Stance Time (s)')
+plot(l_arm_vec,takeoff_pos_x(indx_stance,:),'ro')
+xlabel('Arm Length (m)')
 ylabel('X Position at Takeoff (m)');
 subplot(3,2,4)
-plot(stance_time,takeoff_pos_y(indx_stance,:),'ro')
-xlabel('Stance Time (s)')
+plot(l_arm_vec,takeoff_pos_y(indx_stance,:),'ro')
+xlabel('Arm Length (m)')
 ylabel('Y Position at Takeoff (m)');
 subplot(3,2,5)
-plot(stance_time,takeoff_vel_x(indx_stance,:),'ro')
-xlabel('Stance Time (s)')
+plot(l_arm_vec,takeoff_vel_x(indx_stance,:),'ro')
+xlabel('Arm Length (m)')
 ylabel('X Velocity at Takeoff (m/s)');
 subplot(3,2,6)
-plot(stance_time,takeoff_vel_y(indx_stance,:),'ro')
-xlabel('Stance Time (s)')
+plot(l_arm_vec,takeoff_vel_y(indx_stance,:),'ro')
+xlabel('Arm Length (m)')
 ylabel('Y Velocity at Takeoff (m)');
 
 
