@@ -74,7 +74,7 @@ kp = 5;
 kd = 0.3;
 
 tau = kp.*(zj_des - z(3:5)) - kd.*z(8:10);
-
+tau = saturate_torque(z,tau,p);
 % Get mass matrix
 A = A_floating(z,p);
 
@@ -91,6 +91,23 @@ dz(1:5) = z(6:10);
 dz(6:10) = qdd;
 
 end
+
+function u = saturate_torque(z,u,p)
+    emax = 12;
+    kt = p(33); 
+    R  = p(34);
+    N  = p(13);
+    
+    qd = z(8:10);
+    
+    
+    tau_max = (emax - kt*qd*N)*kt/R*N;
+    tau_min = (-emax - kt*qd*N)*kt/R*N;
+    
+    u = max(min(u,tau_max),tau_min);
+    
+end
+
 
 function tau = control_law_flight(t, z, p,z0)
  
