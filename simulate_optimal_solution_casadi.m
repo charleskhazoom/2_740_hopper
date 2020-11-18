@@ -101,8 +101,8 @@ function u = saturate_torque(z,u,p)
     qd = z(8:10);
     
     
-    tau_max = (emax - kt*qd*N)*kt/R*N;
-    tau_min = (-emax - kt*qd*N)*kt/R*N;
+    tau_max = (emax - kt*qd)*kt/R;
+    tau_min = (-emax - kt*qd)*kt/R;
     
     u = max(min(u,tau_max),tau_min);
     

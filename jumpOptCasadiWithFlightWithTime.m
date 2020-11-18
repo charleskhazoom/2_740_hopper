@@ -44,14 +44,14 @@ mu = 1.2; % friction coef
 max_voltage = 12; % volts
 motor_kt = 0.18;
 motor_R = 2;
-tau_max = (max_voltage)*motor_kt/motor_R*N;
+tau_max = (max_voltage)*motor_kt/motor_R*1.2;
 
 m_offset_x = use_boom * 0.4;
 m_offset_y = use_boom * 0.16;
 l_boom = 8*0.0254;
 h_boom = 0.1921; % to be adjusted for ground.
 hob = 91.3/1000;
-boom_stiffness = use_boom * 0.2877; % Nm/rad
+boom_stiffness = use_boom * 0.2877/1.2; % Nm/rad
 boom_angle_min = -deg2rad(70);
 boom_angle_max = deg2rad(70);
 
@@ -74,8 +74,8 @@ if(init_leg_angle(1) > deg2rad(75) || init_leg_angle(1) < -deg2rad(75) ||...
 end
 
 %% State/Control Bounds
-q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -2*pi -1.5 -1.5 -15 -15 -15]';
-q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3  15  15  15]';
+q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -2*pi -1.5 -1.5 -150 -150 -150]';
+q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3     150  150  150]';
 
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
@@ -87,7 +87,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(12,24,7);
 l_arm_vec = linspace(8,30,7)*0.0254;
 
-tic
+
 for aa = 1:length(l_arm_vec)
     aa
     l_arm = l_arm_vec(aa);
@@ -103,7 +103,7 @@ for aa = 1:length(l_arm_vec)
         j
         %% Integration Settings
         res = 5;
-        dt = 0.01 / res;
+        dt = 0.01/res;
         N_stance = floor(res * t_stance_vec(j)); % for now, let's fix stance time
         N_steps = N_stance + 15;
         
@@ -168,12 +168,12 @@ for aa = 1:length(l_arm_vec)
             opti.subject_to(fk(2) <= 80);
             
             % Voltage Inequality
-            opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N <= max_voltage);
-            opti.subject_to( (tauk(1)/N)*motor_R/motor_kt + motor_kt*qdk(3)*N >= -max_voltage);
-            opti.subject_to( (tauk(2)/N)*motor_R/motor_kt + motor_kt*qdk(4)*N <= max_voltage);
-            opti.subject_to( (tauk(2)/N)*motor_R/motor_kt + motor_kt*qdk(4)*N >= -max_voltage);
-            opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N <= max_voltage);
-            opti.subject_to( (tauk(3)/N)*motor_R/motor_kt + motor_kt*qdk(5)*N >= -max_voltage);
+            opti.subject_to((tauk(1))*motor_R/motor_kt + motor_kt*qdk(3) <= max_voltage);
+            opti.subject_to((tauk(1))*motor_R/motor_kt + motor_kt*qdk(3) >= -max_voltage);
+            opti.subject_to((tauk(2))*motor_R/motor_kt + motor_kt*qdk(4) <= max_voltage);
+            opti.subject_to((tauk(2))*motor_R/motor_kt + motor_kt*qdk(4) >= -max_voltage);
+            opti.subject_to((tauk(3))*motor_R/motor_kt + motor_kt*qdk(5) <= max_voltage);
+            opti.subject_to((tauk(3))*motor_R/motor_kt + motor_kt*qdk(5) >= -max_voltage);
             
             % Boom angle constraint
             opti.subject_to(boom_angle_k == angle_boom([qk;qdk],p));
@@ -358,6 +358,7 @@ colorbar
 
 
 %% Compare different stance times for a given arm length
+
 indx_arm = 1; % do this for a given arm length
 
 [~,indx_stance] = max(landing_pos(:,indx_arm));
@@ -423,6 +424,17 @@ ylabel('Y Velocity at Takeoff (m)');
 
 
 %% Simulate & plot
+
+% take correct arm length for simulation
+l_arm = l_arm_vec(indx_arm);
+l_cm_arm = 1*l_arm;
+I_arm = m_arm*l_cm_arm^2;
+
+p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+    m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+
+
 [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_stance,indx_arm},z0,taus{indx_stance,indx_arm},p);
 
 plot_with_bounds(ts{indx_stance,indx_arm},qs{indx_stance,indx_arm},qds{indx_stance,indx_arm},...
@@ -438,11 +450,38 @@ xlabel('Body Position - x (m)')
 ylabel('Body Position - y (m)')
 
 %% Animate
+
 figure();
 animateSol(tsim,zsim',p);
 
 %% Save traj
-save_traj(ts{indx_stance},[qs{indx_stance};qds{indx_stance}],taus{indx_stance},'matt_test_traj.mat',1/100)
+save_traj(ts{indx_stance,indx_arm},[qs{indx_stance,indx_arm};qds{indx_stance,indx_arm}],taus{indx_stance,indx_arm},'test_traj_right_kt.mat',1/100)
 
 
+%% simulate in loop
 
+for aa = 1:length(l_arm_vec)
+    
+    % take correct arm length for simulation
+    l_arm = l_arm_vec(aa);
+    l_cm_arm = 1*l_arm;
+    I_arm = m_arm*l_cm_arm^2;
+    
+    p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+        l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+        m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+
+    
+    [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_stance,aa},z0,taus{indx_stance,aa},p);
+    rE{aa} = position_foot(zsim',p);
+    
+   
+
+    
+end
+%%
+figure;
+
+for aa = 1:length(l_arm_vec)
+     plot(l_arm_vec(aa),rE{aa}(1,end),'or');hold on;
+end
