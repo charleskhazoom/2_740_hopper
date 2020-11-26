@@ -80,7 +80,7 @@ q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3     150  150  150]';
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-mass_vec = linspace(0.05,0.4,2);
+mass_vec = linspace(0.05,0.4,10);
 
 
 l_arm_length_vec = 8*0.0254; %linspace(2,20,10)*0.0254;
@@ -376,7 +376,7 @@ animateSol(tsim,zsim',p);
 save_traj(ts{indx_mass,indx_arm},[qs{indx_mass,indx_arm};qds{indx_mass,indx_arm}],taus{indx_mass,indx_arm},'test_traj_right_kt.mat',1/100)
 
 
-%% simulate in loop
+%% simulate in loop for arm length
 
 for aa = 1:length(l_arm_length_vec)
     
@@ -396,14 +396,44 @@ for aa = 1:length(l_arm_length_vec)
     rE{aa} = position_foot(zsim',p);
     
    
-
     
 end
-%%
+
 figure;
 
 for aa = 1:length(l_arm_length_vec)
      plot(l_arm_length_vec(aa),rE{aa}(1,end),'or');hold on;
 end
 xlabel('Arm Length (m)');
+ylabel('Jumping Distance (m)'); grid on
+%%
+
+%% simulate in loop for arm mass
+
+for mm = 1:length(mass_vec)
+    
+    % take correct arm length for simulation
+    l_arm = l_arm_length_vec(indx_arm);
+    m_arm = mass_vec(mm);
+
+    l_cm_arm = 1*l_arm;
+    I_arm = m_arm*l_cm_arm^2;
+    
+    p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+        l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+        m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+
+    
+    [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{mm,indx_arm},z0,taus{mm,indx_arm},p);
+    rE{mm} = position_foot(zsim',p);
+    
+   
+end
+
+figure;
+
+for mm = 1:length(mass_vec)
+     plot(mass_vec(mm),rE{mm}(1,end),'or');hold on;
+end
+xlabel('Arm Mass (kg)');
 ylabel('Jumping Distance (m)'); grid on
