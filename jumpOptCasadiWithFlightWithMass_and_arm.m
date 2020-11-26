@@ -80,10 +80,10 @@ q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3     150  150  150]';
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-mass_vec = linspace(0.05,0.4,2);
+mass_vec = 0.2;%linspace(0.05,0.4,2);
 
 
-l_arm_length_vec = 8*0.0254; %linspace(2,20,10)*0.0254;
+l_arm_length_vec = [4 8 12]*0.0254; %linspace(2,20,10)*0.0254;
 
 landing_pos = zeros(1,length(mass_vec));
 stance_time = zeros(1,length(mass_vec));
@@ -273,34 +273,34 @@ for aa = 1:length(l_arm_length_vec)
 end
 %% Compare different arm masses for a given arm length
 
-indx_arm = 1; % do this for a given arm length
+indx_l_arm = 1; % do this for a given arm length
 
-[~,indx_mass] = max(landing_pos(:,indx_arm));
+[~,indx_mass] = max(landing_pos(:,indx_l_arm));
 
 
 figure()
 subplot(3,2,1)
-plot(mass_vec,landing_pos(:,indx_arm),'ro')
+plot(mass_vec,landing_pos(:,indx_l_arm),'ro')
 xlabel('Arm Mass (kg)')
 ylabel('Horizontal Jump Distance');
 subplot(3,2,2)
-plot(mass_vec,takeoff_vel_ratio(:,indx_arm),'ro')
+plot(mass_vec,takeoff_vel_ratio(:,indx_l_arm),'ro')
 xlabel('Arm Mass (kg)')
 ylabel('Takeoff Velocity Ratio');
 subplot(3,2,3)
-plot(mass_vec,takeoff_pos_x(:,indx_arm),'ro')
+plot(mass_vec,takeoff_pos_x(:,indx_l_arm),'ro')
 xlabel('Arm Mass (kg)')
 ylabel('X Position at Takeoff (m)');
 subplot(3,2,4)
-plot(mass_vec,takeoff_pos_y(:,indx_arm),'ro')
+plot(mass_vec,takeoff_pos_y(:,indx_l_arm),'ro')
 xlabel('Arm Mass (kg)')
 ylabel('Y Position at Takeoff (m)');
 subplot(3,2,5)
-plot(mass_vec,takeoff_vel_x(:,indx_arm),'ro')
+plot(mass_vec,takeoff_vel_x(:,indx_l_arm),'ro')
 xlabel('Stance Time (s)')
 xlabel('Arm Mass (kg)')
 subplot(3,2,6)
-plot(mass_vec,takeoff_vel_y(:,indx_arm),'ro')
+plot(mass_vec,takeoff_vel_y(:,indx_l_arm),'ro')
 xlabel('Arm Mass (kg)')
 ylabel('Y Velocity at Takeoff (m)');
 
@@ -340,9 +340,9 @@ ylabel('Y Velocity at Takeoff (m)');
 
 
 %% Simulate & plot
-
+indx_l_arm=3;
 % take correct arm length for simulation
-l_arm = l_arm_length_vec(indx_arm);
+l_arm = l_arm_length_vec(indx_l_arm);
 m_arm = mass_vec(indx_mass);
 
 l_cm_arm = 1*l_arm;
@@ -353,10 +353,10 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
     m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
 
 
-[tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_mass,indx_arm},z0,taus{indx_mass,indx_arm},p);
+[tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_mass,indx_l_arm},z0,taus{indx_mass,indx_l_arm},p);
 
-plot_with_bounds(ts{indx_mass,indx_arm},qs{indx_mass,indx_arm},qds{indx_mass,indx_arm},...
-    fs{indx_mass,indx_arm},taus{indx_mass,indx_arm},boom_angs{indx_mass,indx_arm},boom_fs{indx_mass,indx_arm},...
+plot_with_bounds(ts{indx_mass,indx_l_arm},qs{indx_mass,indx_l_arm},qds{indx_mass,indx_l_arm},...
+    fs{indx_mass,indx_l_arm},taus{indx_mass,indx_l_arm},boom_angs{indx_mass,indx_l_arm},boom_fs{indx_mass,indx_l_arm},...
     q_min,q_max,u_min,u_max,max_voltage,mu,...
     N,motor_R,motor_kt,boom_angle_min,boom_angle_max);
 
@@ -370,10 +370,12 @@ ylabel('Body Position - y (m)')
 %% Animate
 
 figure();
+set(gcf,'position',[68           1        1853         970]);
+
 animateSol(tsim,zsim',p);
 
 %% Save traj
-save_traj(ts{indx_mass,indx_arm},[qs{indx_mass,indx_arm};qds{indx_mass,indx_arm}],taus{indx_mass,indx_arm},'test_traj_right_kt.mat',1/100)
+save_traj(ts{indx_mass,indx_l_arm},[qs{indx_mass,indx_l_arm};qds{indx_mass,indx_l_arm}],taus{indx_mass,indx_l_arm},'test_traj_right_kt.mat',1/100)
 
 
 %% simulate in loop

@@ -1,4 +1,13 @@
 function animateSol(tspan, x,p)
+%     interpolate solution
+    [tspan,ia] = unique(tspan);
+    x=x(:,ia);
+    tt = [0:0.00005:tspan(end)]';
+    xx = interp1(tspan,x',tt);
+    
+    
+    tspan = tt;
+    x = xx';
     % Prepare plot handles
     hold on
     h_OB = plot([0],[0],'LineWidth',2);
@@ -31,6 +40,7 @@ function animateSol(tspan, x,p)
      seg6y = [];
      hip_traj = [];
      col = [0.3 0.3 0.3];
+     plot([-0.2 0.7],[0 0],'-k','linewidth',2)
     %Step through and update animation
     for i = 1:1:length(tspan)
         % skip frame.
