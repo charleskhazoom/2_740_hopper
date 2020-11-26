@@ -5,7 +5,7 @@ clear
 % 1 - final x com position based on ballistic traj
 
 obj_func = 1;
-use_boom = 1;
+use_boom = 0;
 
 %% Add Libraries
 % add casadi library
@@ -39,9 +39,9 @@ m_arm = 0.2; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2; % dummy assignation for some initializations
 
 ground_height = 0;
-mu = 1.2; % friction coef
+mu = 0.8; % friction coef
 
-max_voltage = 12; % volts
+max_voltage = 20; % volts
 motor_kt = 0.18;
 motor_R = 2;
 tau_max = (max_voltage)*motor_kt/motor_R*1.2;
@@ -392,3 +392,5 @@ figure;
 for aa = 1:length(l_arm_vec)
      plot(l_arm_vec(aa),rE{aa}(1,end),'or');hold on;
 end
+xlabel('Arm Length (m)');
+ylabel('Jumping Distance (m)'); grid on

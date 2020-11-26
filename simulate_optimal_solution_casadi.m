@@ -70,8 +70,8 @@ function dz = get_dynamics_flight(t,z,p)
 
 % Desired joint angles
 zj_des = deg2rad([-70;130;180]);
-kp = 5;
-kd = 0.3;
+kp = 20;
+kd = 0.6;
 
 tau = kp.*(zj_des - z(3:5)) - kd.*z(8:10);
 tau = saturate_torque(z,tau,p);
@@ -93,7 +93,7 @@ dz(6:10) = qdd;
 end
 
 function u = saturate_torque(z,u,p)
-    emax = 12;
+    emax = 20;
     kt = p(33); 
     R  = p(34);
     N  = p(13);
