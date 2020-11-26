@@ -83,7 +83,7 @@ u_max = [tau_max tau_max tau_max]';
 t_stance_vec = linspace(17,17,1);
 
 
-l_arm_vec = linspace(2,20,10)*0.0254;
+l_arm_vec = 8*0.0254; %linspace(2,20,10)*0.0254;
 
 landing_pos = zeros(1,length(t_stance_vec));
 stance_time = zeros(1,length(t_stance_vec));
@@ -220,7 +220,11 @@ for aa = 1:length(l_arm_vec)
         
         switch obj_func
             case 1
-                g_with_boom = 0.5*g;
+                if use_boom ==1
+                    g_with_boom = 0.5*g;
+                else
+                    g_with_boom = g;
+                end
                 vz = dcom_fin(2);
                 z = com_fin(2);
                 vx = dcom_fin(1);
