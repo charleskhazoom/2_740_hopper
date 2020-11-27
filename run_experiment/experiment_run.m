@@ -8,13 +8,12 @@ data = load('test_traj_right_kt_mu_0_8.mat'); % load in trajectory data
 torque_profile = data.traj.torques;
 torque_profile(1,:) = -torque_profile(1,:);
 torque_profile(2,:) = -torque_profile(2,:);
-%torque_profile(3,:) = [1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0];
 %torque_profile = repmat([.5,0,0]',1,20);
 
 q_profile = data.traj.q;
 q_profile(1,:) = -q_profile(1,:); % dont forget the negative
 q_profile(2,:) = -q_profile(2,:);
-q_profile(3,:) = -pi/6*ones(1,20);
+
 %q_profile = repmat([-pi/4,-pi/2,0]',1,20);
 
 qd_profile = data.traj.qd;
