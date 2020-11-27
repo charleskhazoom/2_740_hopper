@@ -39,7 +39,7 @@ m_arm = 0.2; % 100 grams ?
 I_arm = m_arm*l_cm_arm^2; % dummy assignation for some initializations
 
 ground_height = 0;
-mu = 1.2; % friction coef
+mu = 0.8; % friction coef
 
 max_voltage = 12; % volts
 motor_kt = 0.18;
@@ -61,7 +61,7 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
     m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
 
 %% Initial conditions
-desired_hip_pos0 = [0.0;0.14];%[0.03;0.06];
+desired_hip_pos0 = [0.0;0.1];%[0.03;0.06];
 guess_leg_angle  = [10*pi/180; 10*pi/180];
 init_leg_angle = fsolve(@(x)solve_init_pose(x,desired_hip_pos0,p),guess_leg_angle);
 init_arm_angle = pi;
@@ -74,7 +74,7 @@ if(init_leg_angle(1) > deg2rad(75) || init_leg_angle(1) < -deg2rad(75) ||...
 end
 
 %% State/Control Bounds
-q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -2*pi -1.5 -1.5 -150 -150 -150]';
+q_min = [-0.02 0.04 -deg2rad(75) deg2rad(32) -2*pi -1.5 -1.5 -150 -150 -150]';
 q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3     150  150  150]';
 
 u_min = -[tau_max tau_max tau_max]';
@@ -84,12 +84,11 @@ u_max = [tau_max tau_max tau_max]';
 % t_stance = 17
 % l_arm = 18.4500*0.0254
 
-t_stance_vec = linspace(12,24,7);
-l_arm_vec = linspace(8,30,7)*0.0254;
+t_stance_vec = linspace(8,70,13);
+l_arm_vec = linspace(1,15,13)*0.0254;
 
-
+tic
 for aa = 1:length(l_arm_vec)
-    aa
     l_arm = l_arm_vec(aa);
     l_cm_arm = 1*l_arm;
     I_arm = m_arm*l_cm_arm^2;
@@ -100,6 +99,7 @@ for aa = 1:length(l_arm_vec)
 
 
     for j = 1:length(t_stance_vec)
+        aa
         j
         %% Integration Settings
         res = 5;
@@ -298,66 +298,155 @@ toc
 
 % CoM Data
 figure()
-subplot(2,1,1)
-contourf(t_stance_vec./100,100.*l_arm_vec,landing_pos)
+% subplot(2,1,1)
+contourf(t_stance_vec./100,100.*l_arm_vec,landing_pos')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
 title('Horizontal Landing Position - Predicted (m)')
 colorbar
-
-subplot(2,1,2)
-contourf(t_stance_vec./100,100.*l_arm_vec,landing_pos) % actual landing pos - from charles
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Angular velocity at Takeoff (rad/s)')
-colorbar
+% 
+% subplot(2,1,2)
+% contourf(t_stance_vec./100,100.*l_arm_vec,landing_pos') % actual landing pos - from charles
+% xlabel('Stance Time (s)');
+% ylabel('Arm Length (cm)');
+% title('Horizontal Landing Position - Predicted (m)')
+% colorbar
 
 % Arm Data
 figure()
 subplot(3,2,1)
-contourf(t_stance_vec./100,100.*l_arm_vec,rad2deg(takeoff_ang_arm))
+contourf(t_stance_vec./100,100.*l_arm_vec,rad2deg(takeoff_ang_arm)')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
 title('Arm Position at Takeoff (deg)')
 colorbar
 
 subplot(3,2,2)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_ang_vel_arm)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_ang_vel_arm')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
 title('Arm Angular velocity at Takeoff (rad/s)')
 colorbar
 
 subplot(3,2,3)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_x)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_x')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
 title('Arm Tip v_x at Takeoff (m/s)')
 colorbar
 
 subplot(3,2,4)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_y)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_y')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
 title('Arm Tip v_y at Takeoff (m/s)')
 colorbar
 
 subplot(3,2,5)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_ratio)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_ratio')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
-title('Arm Tip Velocity Ratio')
+title('Arm Tip Velocity Ratio at Takeoff')
 colorbar
 
 subplot(3,2,6)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_mag)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_mag')
 xlabel('Stance Time (s)');
 ylabel('Arm Length (cm)');
-title('Arm Tip Velocity (magnitude) at Takeoff (m/s)')
+title('Arm Tip ||v|| at Takeoff (m/s)')
 colorbar
+
+% Body Data
+figure()
+subplot(3,2,1)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_body_x')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('Body Position - x at Takeoff (m)')
+colorbar
+
+subplot(3,2,2)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_body_y')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('Body Position - y at Takeoff (m)')
+colorbar
+
+subplot(3,2,3)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_x')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('Body v_x at Takeoff (m/s)')
+colorbar
+
+subplot(3,2,4)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_y')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('Body v_y at Takeoff (m/s)')
+colorbar
+
+subplot(3,2,5)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_ratio')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('Body Velocity Ratio at Takeoff')
+colorbar
+
+% subplot(3,2,6)
+% contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_mag')
+% xlabel('Stance Time (s)');
+% ylabel('Arm Length (cm)');
+% title('Body ||v|| at Takeoff (m/s)')
+% colorbar
+
+% CoM Data
+figure()
+subplot(3,2,1)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_x')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('CoM Position - x at Takeoff (m)')
+colorbar
+
+subplot(3,2,2)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_y')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('CoM Position - y at Takeoff (m)')
+colorbar
+
+subplot(3,2,3)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_x')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('CoM v_x at Takeoff (m/s)')
+colorbar
+
+subplot(3,2,4)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_y')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('CoM v_y at Takeoff (m/s)')
+colorbar
+
+subplot(3,2,5)
+contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_ratio')
+xlabel('Stance Time (s)');
+ylabel('Arm Length (cm)');
+title('CoM Velocity Ratio at Takeoff')
+colorbar
+
+% subplot(3,2,6)
+% contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_mag')
+% xlabel('Stance Time (s)');
+% ylabel('Arm Length (cm)');
+% title('CoM ||v|| at Takeoff (m/s)')
+% colorbar
 
 
 %% Compare different stance times for a given arm length
+% for each stance time, find the optimal arm length
 
 indx_arm = 1; % do this for a given arm length
 
@@ -390,7 +479,7 @@ xlabel('Stance Time (s)')
 ylabel('Y Velocity at Takeoff (m)');
 
 %% Compare different arm length for a given stance time
-indx_stance = 1; % do this for a given arm length
+indx_stance = 2; % do this for a given arm length
 
 last_arm_idx = length(l_arm_vec);
 l_arm_vec =l_arm_vec(1:last_arm_idx);
