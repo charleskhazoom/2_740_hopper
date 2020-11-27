@@ -74,37 +74,40 @@ if(init_leg_angle(1) > deg2rad(75) || init_leg_angle(1) < -deg2rad(75) ||...
 end
 
 %% State/Control Bounds
-q_min = [-0.02 0.04 -deg2rad(75) deg2rad(32) -2*pi -1.5 -1.5 -150 -150 -150]';
+q_min = [-0.2 -0.5 -deg2rad(75) deg2rad(32) -2*pi -1.5 -1.5 -150 -150 -150]';
 q_max = [0.35 0.5  deg2rad(75)  deg2rad(142)  2*pi  3  3     150  150  150]';
 
 u_min = -[tau_max tau_max tau_max]';
 u_max = [tau_max tau_max tau_max]';
 
-% Good result
-% t_stance = 17
-% l_arm = 18.4500*0.0254
 
-t_stance_vec = linspace(8,70,13);
-l_arm_vec = linspace(1,15,13)*0.0254;
-
-tic
-for aa = 1:length(l_arm_vec)
-    l_arm = l_arm_vec(aa);
-    l_cm_arm = 1*l_arm;
-    I_arm = m_arm*l_cm_arm^2;
-
-    p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
-    l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
-    m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+mass_vec = linspace(0.05,0.4,10);
 
 
-    for j = 1:length(t_stance_vec)
-        aa
+l_arm_length_vec = [4 8 12]*0.0254; %linspace(2,20,10)*0.0254;
+
+landing_pos = zeros(1,length(mass_vec));
+stance_time = zeros(1,length(mass_vec));
+
+for aa = 1:length(l_arm_length_vec)
+    aa
+
+
+    for j = 1:length(mass_vec)
+        l_arm = l_arm_length_vec(aa);
+        m_arm = mass_vec(j);
+        l_cm_arm = 1*l_arm;
+        I_arm = m_arm*l_cm_arm^2;
+        
+        p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+            l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+            m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+
         j
         %% Integration Settings
         res = 5;
         dt = 0.01/res;
-        N_stance = floor(res * t_stance_vec(j)); % for now, let's fix stance time
+        N_stance = floor(res * 17); % for now, let's fix stance time
         N_steps = N_stance + 15;
         
         %% Optimization Variables
@@ -176,10 +179,13 @@ for aa = 1:length(l_arm_vec)
             opti.subject_to((tauk(3))*motor_R/motor_kt + motor_kt*qdk(5) >= -max_voltage);
             
             % Boom angle constraint
-            opti.subject_to(boom_angle_k == angle_boom([qk;qdk],p));
-            opti.subject_to(boom_force_k == Force_boom([qk;qdk],p));
-            opti.subject_to(boom_angle_k <= boom_angle_max);
-            opti.subject_to(boom_angle_k >= boom_angle_min);
+            
+            if use_boom == 1
+                opti.subject_to(boom_angle_k == angle_boom([qk;qdk],p));
+                opti.subject_to(boom_force_k == Force_boom([qk;qdk],p));
+                opti.subject_to(boom_angle_k <= boom_angle_max);
+                opti.subject_to(boom_angle_k >= boom_angle_min);
+            end
             
             % State Bounds
             opti.subject_to(qk <= q_max(1:5));
@@ -213,8 +219,6 @@ for aa = 1:length(l_arm_vec)
         com_fin = com_pos([qN;qdN],p);
         dcom_fin = com_vel([qN;qdN],p);
         
-        arm_vel = arm_tip_vel([qN;qdN],p);
-        
         % Takeoff conditions
         opti.subject_to(com_fin(1) >= 0.0)
         opti.subject_to(dcom_fin(1) >= 0.0)
@@ -239,18 +243,8 @@ for aa = 1:length(l_arm_vec)
         opti.minimize(cost);
         
         %% Initial guess
-        if j > 1
-            guess = repmat(Xs{j-1,aa}(:,end),1,N_steps);
-            guess(:,1:length(Xs{j-1,aa})) = Xs{j-1,aa};
-            opti.set_initial(X,guess);
-        elseif aa > 1
-            guess = repmat(Xs{1,aa-1}(:,end),1,N_steps);
-            guess(:,1:length(Xs{1,aa-1})) = Xs{1,aa-1};
-            opti.set_initial(X,guess);
-        else
-            opti.set_initial(q,repmat(z0(1:5),1,N_steps));
-            opti.set_initial(qd,repmat(z0(6:10),1,N_steps));
-        end
+        opti.set_initial(q,repmat(z0(1:5),1,N_steps));
+        opti.set_initial(qd,repmat(z0(6:10),1,N_steps));
         
         %% Solve!
         opti.solver('ipopt');
@@ -269,257 +263,89 @@ for aa = 1:length(l_arm_vec)
         boom_fs{j,aa} = sol.value(boom_force); % boom force
         
         landing_pos(j,aa) = -sol.value(cost);
-        
-        % CoM at takeoff
         takeoff_pos_x(j,aa) = sol.value(com_fin(1));
         takeoff_pos_y(j,aa) = sol.value(com_fin(2));
         takeoff_vel_x(j,aa) = sol.value(dcom_fin(1));
         takeoff_vel_y(j,aa) = sol.value(dcom_fin(2));
         takeoff_vel_ratio(j,aa) = sol.value(dcom_fin(1)/dcom_fin(2));
-        
-        % Body at takeoff
-        takeoff_pos_body_x(j,aa) = sol.value(qN(1));
-        takeoff_pos_body_y(j,aa) = sol.value(qN(2));
-        takeoff_vel_body_x(j,aa) = sol.value(qdN(1));
-        takeoff_vel_body_y(j,aa) = sol.value(qdN(2));
-        takeoff_vel_body_ratio(j,aa) = sol.value(qdN(1)/qdN(2));
-        
-        % Arm at takeoff
-        takeoff_ang_arm(j,aa) = sol.value(qN(5));
-        takeoff_ang_vel_arm(j,aa) = sol.value(qdN(5));
-        takeoff_vel_arm_x(j,aa) = sol.value(arm_vel(1));
-        takeoff_vel_arm_y(j,aa) = sol.value(arm_vel(2));
-        takeoff_vel_arm_mag(j,aa) = sqrt(sol.value(arm_vel(1))^2+sol.value(arm_vel(2))^2);
-        takeoff_vel_arm_ratio(j,aa) = sol.value(arm_vel(1))/sol.value(arm_vel(2));
-        
         stance_time(j,aa) = t_stances{j,aa}(end);
         
     end
 end
-toc
+%% Compare different arm masses for a given arm length
 
-%% Contour plots comparing different stance times and arm lengths
+indx_l_arm = 1; % do this for a given arm length
 
-% CoM Data
-figure()
-% subplot(2,1,1)
-contourf(t_stance_vec./100,100.*l_arm_vec,landing_pos')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Horizontal Landing Position - Predicted (m)')
-colorbar
-% 
-% subplot(2,1,2)
-% contourf(t_stance_vec./100,100.*l_arm_vec,landing_pos') % actual landing pos - from charles
-% xlabel('Stance Time (s)');
-% ylabel('Arm Length (cm)');
-% title('Horizontal Landing Position - Predicted (m)')
-% colorbar
+[~,indx_mass] = max(landing_pos(:,indx_l_arm));
 
-% Arm Data
-figure()
-subplot(3,2,1)
-contourf(t_stance_vec./100,100.*l_arm_vec,rad2deg(takeoff_ang_arm)')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Position at Takeoff (deg)')
-colorbar
-
-subplot(3,2,2)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_ang_vel_arm')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Angular velocity at Takeoff (rad/s)')
-colorbar
-
-subplot(3,2,3)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_x')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Tip v_x at Takeoff (m/s)')
-colorbar
-
-subplot(3,2,4)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_y')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Tip v_y at Takeoff (m/s)')
-colorbar
-
-subplot(3,2,5)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_ratio')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Tip Velocity Ratio at Takeoff')
-colorbar
-
-subplot(3,2,6)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_arm_mag')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Arm Tip ||v|| at Takeoff (m/s)')
-colorbar
-
-% Body Data
-figure()
-subplot(3,2,1)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_body_x')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Body Position - x at Takeoff (m)')
-colorbar
-
-subplot(3,2,2)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_body_y')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Body Position - y at Takeoff (m)')
-colorbar
-
-subplot(3,2,3)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_x')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Body v_x at Takeoff (m/s)')
-colorbar
-
-subplot(3,2,4)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_y')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Body v_y at Takeoff (m/s)')
-colorbar
-
-subplot(3,2,5)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_ratio')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('Body Velocity Ratio at Takeoff')
-colorbar
-
-% subplot(3,2,6)
-% contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_body_mag')
-% xlabel('Stance Time (s)');
-% ylabel('Arm Length (cm)');
-% title('Body ||v|| at Takeoff (m/s)')
-% colorbar
-
-% CoM Data
-figure()
-subplot(3,2,1)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_x')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('CoM Position - x at Takeoff (m)')
-colorbar
-
-subplot(3,2,2)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_pos_y')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('CoM Position - y at Takeoff (m)')
-colorbar
-
-subplot(3,2,3)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_x')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('CoM v_x at Takeoff (m/s)')
-colorbar
-
-subplot(3,2,4)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_y')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('CoM v_y at Takeoff (m/s)')
-colorbar
-
-subplot(3,2,5)
-contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_ratio')
-xlabel('Stance Time (s)');
-ylabel('Arm Length (cm)');
-title('CoM Velocity Ratio at Takeoff')
-colorbar
-
-% subplot(3,2,6)
-% contourf(t_stance_vec./100,100.*l_arm_vec,takeoff_vel_mag')
-% xlabel('Stance Time (s)');
-% ylabel('Arm Length (cm)');
-% title('CoM ||v|| at Takeoff (m/s)')
-% colorbar
-
-
-%% Compare different stance times for a given arm length
-% for each stance time, find the optimal arm length
-
-indx_arm = 1; % do this for a given arm length
-
-[~,indx_stance] = max(landing_pos(:,indx_arm));
 
 figure()
 subplot(3,2,1)
-plot(stance_time,landing_pos(:,indx_arm),'ro')
-xlabel('Stance Time (s)')
+plot(mass_vec,landing_pos(:,indx_l_arm),'ro')
+xlabel('Arm Mass (kg)')
 ylabel('Horizontal Jump Distance');
 subplot(3,2,2)
-plot(stance_time,takeoff_vel_ratio(:,indx_arm),'ro')
-xlabel('Stance Time (s)')
+plot(mass_vec,takeoff_vel_ratio(:,indx_l_arm),'ro')
+xlabel('Arm Mass (kg)')
 ylabel('Takeoff Velocity Ratio');
 subplot(3,2,3)
-plot(stance_time,takeoff_pos_x(:,indx_arm),'ro')
-xlabel('Stance Time (s)')
+plot(mass_vec,takeoff_pos_x(:,indx_l_arm),'ro')
+xlabel('Arm Mass (kg)')
 ylabel('X Position at Takeoff (m)');
 subplot(3,2,4)
-plot(stance_time,takeoff_pos_y(:,indx_arm),'ro')
-xlabel('Stance Time (s)')
+plot(mass_vec,takeoff_pos_y(:,indx_l_arm),'ro')
+xlabel('Arm Mass (kg)')
 ylabel('Y Position at Takeoff (m)');
 subplot(3,2,5)
-plot(stance_time,takeoff_vel_x(:,indx_arm),'ro')
+plot(mass_vec,takeoff_vel_x(:,indx_l_arm),'ro')
 xlabel('Stance Time (s)')
-ylabel('X Velocity at Takeoff (m/s)');
+xlabel('Arm Mass (kg)')
 subplot(3,2,6)
-plot(stance_time,takeoff_vel_y(:,indx_arm),'ro')
-xlabel('Stance Time (s)')
+plot(mass_vec,takeoff_vel_y(:,indx_l_arm),'ro')
+xlabel('Arm Mass (kg)')
 ylabel('Y Velocity at Takeoff (m)');
 
 %% Compare different arm length for a given stance time
-indx_stance = 2; % do this for a given arm length
+indx_mass = 1; % do this for a given arm mass
 
-last_arm_idx = length(l_arm_vec);
-l_arm_vec =l_arm_vec(1:last_arm_idx);
+last_arm_idx = length(l_arm_length_vec);
+l_arm_length_vec =l_arm_length_vec(1:last_arm_idx);
 
 figure()
 title('')
 subplot(3,2,1)
-plot(l_arm_vec,landing_pos(indx_stance,:),'ro')
+plot(l_arm_length_vec,landing_pos(indx_mass,:),'ro')
 xlabel('Arm Length (m)')
 ylabel('Horizontal Jump Distance');
 subplot(3,2,2)
-plot(l_arm_vec,takeoff_vel_ratio(indx_stance,:),'ro')
+plot(l_arm_length_vec,takeoff_vel_ratio(indx_mass,:),'ro')
 xlabel('Arm Length (m)')
 ylabel('Takeoff Velocity Ratio');
 subplot(3,2,3)
-plot(l_arm_vec,takeoff_pos_x(indx_stance,:),'ro')
+plot(l_arm_length_vec,takeoff_pos_x(indx_mass,:),'ro')
 xlabel('Arm Length (m)')
 ylabel('X Position at Takeoff (m)');
 subplot(3,2,4)
-plot(l_arm_vec,takeoff_pos_y(indx_stance,:),'ro')
+plot(l_arm_length_vec,takeoff_pos_y(indx_mass,:),'ro')
 xlabel('Arm Length (m)')
 ylabel('Y Position at Takeoff (m)');
 subplot(3,2,5)
-plot(l_arm_vec,takeoff_vel_x(indx_stance,:),'ro')
+plot(l_arm_length_vec,takeoff_vel_x(indx_mass,:),'ro')
 xlabel('Arm Length (m)')
 ylabel('X Velocity at Takeoff (m/s)');
 subplot(3,2,6)
-plot(l_arm_vec,takeoff_vel_y(indx_stance,:),'ro')
+plot(l_arm_length_vec,takeoff_vel_y(indx_mass,:),'ro')
 xlabel('Arm Length (m)')
 ylabel('Y Velocity at Takeoff (m)');
 
 
-%% Simulate & plot
 
+%% Simulate & plot
+indx_l_arm=3;
 % take correct arm length for simulation
-l_arm = l_arm_vec(indx_arm);
+l_arm = l_arm_length_vec(indx_l_arm);
+m_arm = mass_vec(indx_mass);
+
 l_cm_arm = 1*l_arm;
 I_arm = m_arm*l_cm_arm^2;
 
@@ -528,35 +354,39 @@ p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
     m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
 
 
-[tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_stance,indx_arm},z0,taus{indx_stance,indx_arm},p);
+[tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_mass,indx_l_arm},z0,taus{indx_mass,indx_l_arm},p);
 
-plot_with_bounds(ts{indx_stance,indx_arm},qs{indx_stance,indx_arm},qds{indx_stance,indx_arm},...
-    fs{indx_stance,indx_arm},taus{indx_stance,indx_arm},boom_angs{indx_stance,indx_arm},boom_fs{indx_stance,indx_arm},...
+plot_with_bounds(ts{indx_mass,indx_l_arm},qs{indx_mass,indx_l_arm},qds{indx_mass,indx_l_arm},...
+    fs{indx_mass,indx_l_arm},taus{indx_mass,indx_l_arm},boom_angs{indx_mass,indx_l_arm},boom_fs{indx_mass,indx_l_arm},...
     q_min,q_max,u_min,u_max,max_voltage,mu,...
     N,motor_R,motor_kt,boom_angle_min,boom_angle_max);
 
 figure();
 plot(zsim(:,1)',zsim(:,2)','ro-')
 hold on
-plot(qs{indx_stance}(1,:),qs{indx_stance}(2,:),'bo-')
+plot(qs{indx_mass}(1,:),qs{indx_mass}(2,:),'bo-')
 xlabel('Body Position - x (m)')
 ylabel('Body Position - y (m)')
 
 %% Animate
 
 figure();
+set(gcf,'position',[68           1        1853         970]);
+
 animateSol(tsim,zsim',p);
 
 %% Save traj
-save_traj(ts{indx_stance,indx_arm},[qs{indx_stance,indx_arm};qds{indx_stance,indx_arm}],taus{indx_stance,indx_arm},'test_traj_right_kt.mat',1/100)
+save_traj(ts{indx_mass,indx_l_arm},[qs{indx_mass,indx_l_arm};qds{indx_mass,indx_l_arm}],taus{indx_mass,indx_l_arm},'test_traj_right_kt.mat',1/100)
 
 
-%% simulate in loop
+%% simulate in loop for arm length
 
-for aa = 1:length(l_arm_vec)
+for aa = 1:length(l_arm_length_vec)
     
     % take correct arm length for simulation
-    l_arm = l_arm_vec(aa);
+    l_arm = l_arm_length_vec(aa);
+    m_arm = mass_vec(indx_mass);
+
     l_cm_arm = 1*l_arm;
     I_arm = m_arm*l_cm_arm^2;
     
@@ -565,18 +395,48 @@ for aa = 1:length(l_arm_vec)
         m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
 
     
-    [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_stance,aa},z0,taus{indx_stance,aa},p);
+    [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{indx_mass,aa},z0,taus{indx_mass,aa},p);
     rE{aa} = position_foot(zsim',p);
     
    
-
     
 end
-%%
+
 figure;
 
-for aa = 1:length(l_arm_vec)
-     plot(l_arm_vec(aa),rE{aa}(1,end),'or');hold on;
+for aa = 1:length(l_arm_length_vec)
+     plot(l_arm_length_vec(aa),rE{aa}(1,end),'or');hold on;
 end
 xlabel('Arm Length (m)');
+ylabel('Jumping Distance (m)'); grid on
+%%
+
+%% simulate in loop for arm mass
+
+for mm = 1:length(mass_vec)
+    
+    % take correct arm length for simulation
+    l_arm = l_arm_length_vec(indx_arm);
+    m_arm = mass_vec(mm);
+
+    l_cm_arm = 1*l_arm;
+    I_arm = m_arm*l_cm_arm^2;
+    
+    p   = [m1 m2 m3 m4 m_body m_arm I1 I2 I3 I4 I_arm Ir N l_O_m1 l_B_m2...
+        l_A_m3 l_C_m4 l_cm_arm l_cm_body l_OA l_OB l_AC l_DE l_body l_arm g...
+        m_offset_x m_offset_y l_boom h_boom hob boom_stiffness motor_kt motor_R]';        % parameters
+
+    
+    [tsim, zsim, tstance, zstance] = simulate_optimal_solution_casadi(t_stances{mm,indx_arm},z0,taus{mm,indx_arm},p);
+    rE{mm} = position_foot(zsim',p);
+    
+   
+end
+
+figure;
+
+for mm = 1:length(mass_vec)
+     plot(mass_vec(mm),rE{mm}(1,end),'or');hold on;
+end
+xlabel('Arm Mass (kg)');
 ylabel('Jumping Distance (m)'); grid on
