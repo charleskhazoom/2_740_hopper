@@ -189,7 +189,7 @@ function output_data = experiment_dataHandler(time_param, q0, gains, control_met
         h36.XData(end+1:end+N) = t;
         h36.YData(end+1:end+N) = -pos3_des;
         h37.XData(end+1:end+N) = t;
-        h37.YData(end+1:end+N) = vel3_des;
+        h37.YData(end+1:end+N) = -vel3_des;
         
     end
     
@@ -210,8 +210,8 @@ function output_data = experiment_dataHandler(time_param, q0, gains, control_met
     input = [start_period end_period traj_time];
     input = [input q0'];
     input = [input gains'];
-    input = [input hip_flight knee_flight arm_flight];
     input = [input control_method duty_max];
+    input = [input hip_flight knee_flight arm_flight];
     input = [input torque_profile(:)' q_profile(:)' qd_profile(:)'];
     
     params.timeout  = (start_period+traj_time+end_period);  
